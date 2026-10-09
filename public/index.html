@@ -64,8 +64,8 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
             </span>
             <div>
-              <h2>Registros salvos</h2>
-              <code>GET /api/usuarios</code>
+              <h2>Últimos cadastros</h2>
+              <code>GET /api/usuarios?limite=5</code>
             </div>
             <button id="btn-atualizar" class="btn-ghost" type="button">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
@@ -73,6 +73,7 @@
             </button>
           </div>
           <ul id="lista-cadastro" class="user-list"></ul>
+          <p id="rodape-cadastro" class="rodape-lista" hidden></p>
         </div>
 
         <div class="card">
@@ -112,13 +113,24 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="7" r="4"/><path d="M10.3 15H7a4 4 0 0 0-4 4v2"/><circle cx="17" cy="17" r="3"/><path d="m21 21-1.9-1.9"/></svg>
             <input id="busca" type="search" placeholder="Ex.: Ana, João, Silva…" autocomplete="off" />
           </span>
-          <code class="endpoint">GET /api/usuarios?nome=<span id="busca-termo"></span></code>
+          <code id="busca-endpoint" class="endpoint">GET /api/usuarios</code>
         </div>
         <div class="list-head">
           <strong id="busca-titulo">Todos os registros</strong>
           <span id="busca-contagem" class="count"></span>
         </div>
         <ul id="lista-busca" class="user-list"></ul>
+        <nav id="paginacao" class="paginacao" aria-label="Paginação dos registros" hidden>
+          <button type="button" id="pagina-anterior" class="btn-ghost">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Anterior
+          </button>
+          <span id="pagina-info"></span>
+          <button type="button" id="pagina-seguinte" class="btn-ghost">
+            Próxima
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </nav>
       </div>
     </section>
   </main>

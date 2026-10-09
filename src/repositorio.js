@@ -8,6 +8,9 @@ const { EmailJaCadastrado } = require("./erros");
 const BANCO_EM_MEMORIA = ":memory:";
 const COLUNAS = "id, nome, email, idade, criado_em AS criadoEm, atualizado_em AS atualizadoEm";
 const CODIGO_SQLITE_VALOR_REPETIDO = 2067;
+const SEM_LIMITE = -1;
+const FILTRO_POR_NOME = "WHERE nome_normalizado LIKE :padrao ESCAPE '!'";
+const MAIS_RECENTES_PRIMEIRO = "ORDER BY rowid DESC";
 
 function abrirBanco(caminhoArquivo) {
   if (caminhoArquivo !== BANCO_EM_MEMORIA) {
@@ -38,10 +41,10 @@ function criarRepositorio(caminhoArquivo) {
   const banco = abrirBanco(caminhoArquivo);
 
   const consultas = {
-    listar: banco.prepare(`SELECT ${COLUNAS} FROM usuarios ORDER BY rowid`),
-    buscarPorNome: banco.prepare(
-      `SELECT ${COLUNAS} FROM usuarios WHERE nome_normalizado LIKE ? ESCAPE '!' ORDER BY rowid`,
+    buscar: banco.prepare(
+      `SELECT ${COLUNAS} FROM usuarios ${FILTRO_POR_NOME} ${MAIS_RECENTES_PRIMEIRO} LIMIT :limite OFFSET :deslocamento`,
     ),
+    contar: banco.prepare(`SELECT count(*) AS total FROM usuarios ${FILTRO_POR_NOME}`),
     buscarPorId: banco.prepare(`SELECT ${COLUNAS} FROM usuarios WHERE id = ?`),
     emailEmUso: banco.prepare("SELECT 1 FROM usuarios WHERE email = :email AND id IS NOT :excetoId"),
     inserir: banco.prepare(`
@@ -58,9 +61,10 @@ function criarRepositorio(caminhoArquivo) {
   };
 
   return {
-    listar: () => consultas.listar.all(),
+    buscar: ({ nome = "", limite = SEM_LIMITE, deslocamento = 0 } = {}) =>
+      consultas.buscar.all({ padrao: padraoContendoTexto(normalizar(nome)), limite, deslocamento }),
 
-    buscarPorNome: (nome) => consultas.buscarPorNome.all(padraoContendoTexto(normalizar(nome))),
+    contar: ({ nome = "" } = {}) => consultas.contar.get({ padrao: padraoContendoTexto(normalizar(nome)) }).total,
 
     buscarPorIdOuNulo: (id) => consultas.buscarPorId.get(id) ?? null,
 

@@ -46,10 +46,18 @@
       }
     },
     {
-      "name": "Listar todos os usuários",
+      "name": "Listar usuários (paginado)",
       "request": {
         "method": "GET",
-        "url": "{{baseUrl}}/api/usuarios"
+        "url": {
+          "raw": "{{baseUrl}}/api/usuarios?pagina=1&limite=20",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "usuarios"],
+          "query": [
+            { "key": "pagina", "value": "1" },
+            { "key": "limite", "value": "20" }
+          ]
+        }
       }
     },
     {

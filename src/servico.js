@@ -1,5 +1,6 @@
-const { validarDadosDoUsuario, validarTermoDeBusca } = require("./validacao");
+const { validarDadosDoUsuario, validarTermoDeBusca, validarPaginacao } = require("./validacao");
 const { criarUsuario, aplicarEdicao } = require("./usuario");
+const { lerPaginacao, resumirPaginacao } = require("./paginacao");
 const { ErroDeValidacao, UsuarioNaoEncontrado, EmailJaCadastrado } = require("./erros");
 
 function garantirQueNaoHaErros(erros) {
@@ -18,11 +19,16 @@ function criarServicoDeUsuarios(repositorio) {
   }
 
   return {
-    listar: () => repositorio.listar(),
+    listar({ nome = "", pagina, limite } = {}) {
+      garantirQueNaoHaErros([...validarTermoDeBusca(nome), ...validarPaginacao({ pagina, limite })]);
 
-    buscarPorNome(termo) {
-      garantirQueNaoHaErros(validarTermoDeBusca(termo));
-      return repositorio.buscarPorNome(termo);
+      const paginacao = lerPaginacao({ pagina, limite });
+      const deslocamento = (paginacao.pagina - 1) * paginacao.limite;
+
+      return {
+        usuarios: repositorio.buscar({ nome, limite: paginacao.limite, deslocamento }),
+        paginacao: resumirPaginacao(paginacao, repositorio.contar({ nome })),
+      };
     },
 
     buscarPorId,

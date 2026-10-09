@@ -4,8 +4,7 @@ function criarRotasUsuarios(servico) {
   const rotas = express.Router();
 
   rotas.get("/", (req, res) => {
-    const { nome } = req.query;
-    res.json(nome ? servico.buscarPorNome(nome) : servico.listar());
+    res.json(servico.listar(req.query));
   });
 
   rotas.get("/:id", (req, res) => {

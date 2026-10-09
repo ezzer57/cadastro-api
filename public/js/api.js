@@ -16,6 +16,16 @@ function urlDoUsuario(id) {
   return `${URL_USUARIOS}/${encodeURIComponent(id)}`;
 }
 
+export function urlDaListagem({ nome, pagina, limite } = {}) {
+  const parametros = new URLSearchParams();
+  for (const [chave, valor] of Object.entries({ nome, pagina, limite })) {
+    if (valor) parametros.set(chave, valor);
+  }
+
+  const consulta = parametros.toString();
+  return consulta ? `${URL_USUARIOS}?${consulta}` : URL_USUARIOS;
+}
+
 function comCorpoJson(metodo, dados) {
   return {
     method: metodo,
@@ -40,9 +50,7 @@ async function requisicao(url, opcoes = {}) {
 }
 
 export const api = {
-  listar: () => requisicao(URL_USUARIOS),
-
-  buscarPorNome: (nome) => requisicao(`${URL_USUARIOS}?nome=${encodeURIComponent(nome)}`),
+  listar: (filtros) => requisicao(urlDaListagem(filtros)),
 
   buscarPorId: (id) => requisicao(urlDoUsuario(id)),
 

@@ -1,6 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { validarDadosDoUsuario, validarTermoDeBusca } = require("../src/validacao");
+const { validarDadosDoUsuario, validarTermoDeBusca, validarPaginacao } = require("../src/validacao");
 
 const usuarioValido = { nome: "Ana Lima", email: "ana@exemplo.com", idade: 30 };
 
@@ -78,4 +78,17 @@ test("valida o termo de busca", () => {
   assert.deepEqual(validarTermoDeBusca("ana"), []);
   assert.equal(validarTermoDeBusca(["ana", "bia"]).length, 1);
   assert.equal(validarTermoDeBusca("a".repeat(101)).length, 1);
+});
+
+test("valida os parâmetros de paginação", () => {
+  assert.deepEqual(validarPaginacao({}), []);
+  assert.deepEqual(validarPaginacao({ pagina: "1", limite: "100" }), []);
+  assert.deepEqual(validarPaginacao({ pagina: "999999999", limite: "1" }), []);
+
+  for (const pagina of ["0", "-1", "1.5", "abc", "", "01", "1000000000", ["1"], 2]) {
+    assert.deepEqual(validarPaginacao({ pagina }).map((e) => e.campo), ["pagina"], JSON.stringify(pagina));
+  }
+  for (const limite of ["0", "101", "abc", "", ["10"], 10]) {
+    assert.deepEqual(validarPaginacao({ limite }).map((e) => e.campo), ["limite"], JSON.stringify(limite));
+  }
 });

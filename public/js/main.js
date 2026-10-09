@@ -1,10 +1,12 @@
-import { api, errosDaResposta } from "./api.js";
+import { api, errosDaResposta, urlDaListagem } from "./api.js";
 import * as ui from "./componentes.js";
 import { plural, formatarDataHora } from "./utils.js";
 
 const ESPERA_FIM_DIGITACAO_MS = 250;
 const PRAZO_PARA_CONFIRMAR_REMOCAO_MS = 3000;
 const STATUS_NAO_ENCONTRADO = 404;
+const ULTIMOS_CADASTROS_EXIBIDOS = 5;
+const REGISTROS_POR_PAGINA = 10;
 
 const AVISOS = {
   pesquisaBloqueada: {
@@ -29,12 +31,15 @@ const elementos = {
   modalEdicao: $("#modal-edicao"),
   formularioEdicao: $("#form-edicao"),
   mensagemEdicao: $("#edicao-msg"),
+  rodapeCadastro: $("#rodape-cadastro"),
+  paginacao: $("#paginacao"),
 };
 
 const estado = {
   totalUsuarios: 0,
   numeroDaUltimaBusca: 0,
   timerBusca: null,
+  paginaAtual: 1,
   usuarioEmEdicao: null,
 };
 
@@ -53,8 +58,8 @@ function avisarBloqueio(aviso) {
 }
 
 async function pesquisaLiberada() {
-  const usuariosOuNuloSeOffline = await api.listar().catch(() => null);
-  if (usuariosOuNuloSeOffline) atualizarTotal(usuariosOuNuloSeOffline.length);
+  const respostaOuNuloSeOffline = await api.listar({ limite: 1 }).catch(() => null);
+  if (respostaOuNuloSeOffline) atualizarTotal(respostaOuNuloSeOffline.paginacao.total);
   return estado.totalUsuarios > 0;
 }
 
@@ -89,11 +94,12 @@ async function executarComBotaoTravado(formulario, acao) {
 
 async function carregarListaCadastro() {
   try {
-    const usuarios = await api.listar();
-    atualizarTotal(usuarios.length);
+    const { usuarios, paginacao } = await api.listar({ limite: ULTIMOS_CADASTROS_EXIBIDOS });
+    atualizarTotal(paginacao.total);
     ui.renderizarLista(elementos.listaCadastro, usuarios, {
       vazio: "Nenhum registro por aqui ainda. Use o formulário ao lado para fazer o primeiro cadastro.",
     });
+    ui.atualizarRodapeDosUltimos(elementos.rodapeCadastro, usuarios.length, paginacao.total);
   } catch {
     ui.mostrarMensagemNaLista(elementos.listaCadastro, "Não foi possível carregar os registros.");
   }
@@ -119,30 +125,46 @@ async function cadastrar(evento) {
 
 async function pesquisar() {
   const termo = elementos.campoBusca.value.trim();
+  const filtros = { nome: termo, pagina: estado.paginaAtual, limite: REGISTROS_POR_PAGINA };
   const numeroDestaBusca = ++estado.numeroDaUltimaBusca;
   const chegouBuscaMaisNova = () => numeroDestaBusca !== estado.numeroDaUltimaBusca;
 
-  $("#busca-termo").textContent = encodeURIComponent(termo);
+  $("#busca-endpoint").textContent = `GET ${urlDaListagem(filtros)}`;
   $("#busca-titulo").textContent = termo ? `Resultados para “${termo}”` : "Todos os registros";
 
   try {
-    const usuarios = termo ? await api.buscarPorNome(termo) : await api.listar();
+    const { usuarios, paginacao } = await api.listar(filtros);
     if (chegouBuscaMaisNova()) return;
 
-    $("#busca-contagem").textContent = plural(usuarios.length, "registro", "registros");
+    const paginaAtualFicouVazia = usuarios.length === 0 && paginacao.total > 0;
+    if (paginaAtualFicouVazia) {
+      estado.paginaAtual = paginacao.totalPaginas;
+      pesquisar();
+      return;
+    }
+
+    $("#busca-contagem").textContent = plural(paginacao.total, "registro", "registros");
     ui.renderizarLista(elementos.listaBusca, usuarios, {
       termo,
       comAcoes: true,
       vazio: termo ? `Ninguém encontrado com “${termo}”. Tente outra parte do nome.` : "Nenhum registro por aqui ainda.",
     });
+    ui.atualizarPaginacao(elementos.paginacao, paginacao);
   } catch {
     if (chegouBuscaMaisNova()) return;
     $("#busca-contagem").textContent = "";
+    ui.atualizarPaginacao(elementos.paginacao, null);
     ui.mostrarMensagemNaLista(elementos.listaBusca, "Não foi possível pesquisar agora.");
   }
 }
 
+function irParaPagina(passo) {
+  estado.paginaAtual += passo;
+  pesquisar();
+}
+
 function pesquisarQuandoPararDeDigitar() {
+  estado.paginaAtual = 1;
   clearTimeout(estado.timerBusca);
   estado.timerBusca = setTimeout(pesquisar, ESPERA_FIM_DIGITACAO_MS);
 }
@@ -253,6 +275,7 @@ async function navegar() {
   const querPesquisar = location.hash === "#buscar";
 
   if (querPesquisar && await pesquisaLiberada()) {
+    estado.paginaAtual = 1;
     exibirAba("buscar");
     pesquisar();
     return;
@@ -281,5 +304,7 @@ elementos.formularioEdicao.addEventListener("submit", salvarEdicao);
 elementos.campoBusca.addEventListener("input", pesquisarQuandoPararDeDigitar);
 elementos.listaBusca.addEventListener("click", aoClicarNaListaDeBusca);
 $("#btn-atualizar").addEventListener("click", carregarListaCadastro);
+$("#pagina-anterior").addEventListener("click", () => irParaPagina(-1));
+$("#pagina-seguinte").addEventListener("click", () => irParaPagina(1));
 
 navegar();

@@ -1,4 +1,5 @@
 const { padronizarNome, padronizarEmail } = require("./usuario");
+const { PAGINACAO } = require("./paginacao");
 
 const LIMITES = {
   nomeMinLetras: 2,
@@ -13,6 +14,7 @@ const CARACTERES_PERMITIDOS_NO_NOME = /^[\p{L}\p{M} '’.-]+$/u;
 const LETRAS = /\p{L}/gu;
 const PARTE_LOCAL_DO_EMAIL = /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*$/i;
 const DOMINIO_DO_EMAIL = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
+const NUMERO_POSITIVO_DA_URL = /^[1-9]\d{0,8}$/;
 
 function estaVazio(valor) {
   return valor === undefined || valor === null || (typeof valor === "string" && valor.trim() === "");
@@ -94,4 +96,21 @@ function validarTermoDeBusca(termo) {
   return [];
 }
 
-module.exports = { LIMITES, validarDadosDoUsuario, validarTermoDeBusca };
+function ehNumeroPositivoDaUrl(valor) {
+  return typeof valor === "string" && NUMERO_POSITIVO_DA_URL.test(valor);
+}
+
+function validarPaginacao({ pagina, limite }) {
+  const erros = [];
+
+  if (pagina !== undefined && !ehNumeroPositivoDaUrl(pagina)) {
+    erros.push({ campo: "pagina", mensagem: "A página deve ser um número inteiro a partir de 1." });
+  }
+  if (limite !== undefined && (!ehNumeroPositivoDaUrl(limite) || Number(limite) > PAGINACAO.limiteMaximo)) {
+    erros.push({ campo: "limite", mensagem: `O limite deve ser um número inteiro de 1 a ${PAGINACAO.limiteMaximo}.` });
+  }
+
+  return erros;
+}
+
+module.exports = { LIMITES, validarDadosDoUsuario, validarTermoDeBusca, validarPaginacao };

@@ -28,17 +28,43 @@ Variáveis de ambiente opcionais: `PORT` (padrão `3000`) e `DB_FILE` (caminho d
 
 ## Endpoints
 
-| Método | Rota                       | Descrição                                   |
-|--------|----------------------------|---------------------------------------------|
-| POST   | `/api/usuarios`            | Cadastra um usuário                         |
-| GET    | `/api/usuarios?nome=texto` | Busca usuários pelo nome (busca parcial)    |
-| GET    | `/api/usuarios`            | Lista todos os usuários                     |
-| GET    | `/api/usuarios/:id`        | Busca um usuário pelo `id`                  |
-| PUT    | `/api/usuarios/:id`        | Edita um usuário pelo `id`                  |
-| DELETE | `/api/usuarios/:id`        | Remove um usuário pelo `id`                 |
+| Método | Rota                                   | Descrição                                   |
+|--------|----------------------------------------|---------------------------------------------|
+| POST   | `/api/usuarios`                        | Cadastra um usuário                         |
+| GET    | `/api/usuarios`                        | Lista os usuários, com paginação            |
+| GET    | `/api/usuarios?nome=texto`             | Busca usuários pelo nome (busca parcial)    |
+| GET    | `/api/usuarios?pagina=2&limite=10`     | Escolhe a página e quantos itens por página |
+| GET    | `/api/usuarios/:id`                    | Busca um usuário pelo `id`                  |
+| PUT    | `/api/usuarios/:id`                    | Edita um usuário pelo `id`                  |
+| DELETE | `/api/usuarios/:id`                    | Remove um usuário pelo `id`                 |
 
 A busca ignora maiúsculas/minúsculas e acentos: `?nome=joao` encontra "João Silva".
 Todas as respostas são em JSON, inclusive os erros.
+
+## Paginação
+
+A listagem (com ou sem `nome`) é sempre paginada, com os **mais recentes primeiro**.
+
+| Parâmetro | Padrão | Regras |
+|-----------|--------|--------|
+| `pagina`  | `1`    | número inteiro a partir de 1 |
+| `limite`  | `20`   | número inteiro de 1 a 100 |
+
+`GET /api/usuarios?nome=silva&pagina=2&limite=10` responde:
+
+```json
+{
+  "usuarios": [ { "id": "c0a8...", "nome": "João Silva", "...": "..." } ],
+  "paginacao": { "pagina": 2, "limite": 10, "total": 23, "totalPaginas": 3 }
+}
+```
+
+- `total` conta todos os usuários encontrados (respeitando o filtro `nome`), não só os da página.
+- Pedir uma página depois da última devolve `usuarios: []`, com o `total` correto.
+- Valores inválidos (`pagina=0`, `limite=500`, `pagina=abc`) respondem `400` apontando o campo.
+
+No site, a aba Pesquisar mostra 10 registros por página com os botões "Anterior" e "Próxima",
+e a aba Cadastrar mostra os 5 cadastros mais recentes.
 
 ## Validação
 
@@ -74,7 +100,7 @@ No site, os campos com erro ficam destacados em vermelho e o cursor vai para o p
 | Camada | Onde | O que garante | Resposta |
 |--------|------|---------------|----------|
 | Borda HTTP | `src/app.js` | JSON bem formado e de tamanho aceitável | `400` / `413` |
-| Dados | `src/validacao.js` | campos obrigatórios, tipos, tamanhos, formatos, campos desconhecidos | `400` |
+| Dados | `src/validacao.js` | campos obrigatórios, tipos, tamanhos, formatos, campos desconhecidos, paginação | `400` |
 | Regras de negócio | `src/servico.js` | e-mail único, usuário existente | `409` / `404` |
 | Banco de dados | `src/migracoes.js` | `NOT NULL`, `UNIQUE` e `CHECK` (última linha de defesa) | recusa a gravação |
 
@@ -102,17 +128,24 @@ Respostas:
 ### Buscar: `GET /api/usuarios?nome=joao`
 
 ```json
-[
-  {
-    "id": "c0a8...",
-    "nome": "João Silva",
-    "email": "joao@exemplo.com",
-    "idade": 27,
-    "criadoEm": "2026-10-09T12:00:00.000Z",
-    "atualizadoEm": "2026-10-09T15:30:00.000Z"
-  }
-]
+{
+  "usuarios": [
+    {
+      "id": "c0a8...",
+      "nome": "João Silva",
+      "email": "joao@exemplo.com",
+      "idade": 27,
+      "criadoEm": "2026-10-09T12:00:00.000Z",
+      "atualizadoEm": "2026-10-09T15:30:00.000Z"
+    }
+  ],
+  "paginacao": { "pagina": 1, "limite": 20, "total": 1, "totalPaginas": 1 }
+}
 ```
+
+Respostas:
+- `200 OK`: a página de usuários (veja [Paginação](#paginação))
+- `400 Bad Request`: `nome`, `pagina` ou `limite` inválidos
 
 | Campo          | Significado |
 |----------------|-------------|
@@ -159,7 +192,7 @@ Respostas:
 ## Postman
 
 Importe o arquivo `cadastro-api.postman_collection.json` no Postman (File → Import).
-A coleção já vem com as requisições de cadastro, busca, listagem, busca pelo id, edição e remoção.
+A coleção já vem com as requisições de cadastro, busca, listagem paginada, busca pelo id, edição e remoção.
 Ao rodar "Cadastrar usuário", o `id` criado é guardado automaticamente e usado em "Buscar usuário pelo id",
 "Editar usuário" e "Apagar usuário".
 
@@ -172,6 +205,7 @@ src/
   rotas.js               → camada HTTP das rotas /api/usuarios (só repassa para o serviço)
   servico.js             → regras de negócio: valida, confere e-mail único e existência
   validacao.js           → regras de cada campo e mensagens de erro
+  paginacao.js           → valores padrão da paginação e cálculo do total de páginas
   usuario.js             → padronização dos dados e montagem do registro
   erros.js               → erros do domínio (validação, não encontrado, e-mail repetido)
   repositorio.js         → leitura e gravação no banco SQLite

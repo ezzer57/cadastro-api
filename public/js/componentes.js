@@ -46,6 +46,21 @@ export function mostrarMensagemNaLista(lista, mensagem) {
   lista.innerHTML = `<li class="empty">${escapeHtml(mensagem)}</li>`;
 }
 
+export function atualizarRodapeDosUltimos(rodape, quantidadeExibida, total) {
+  rodape.hidden = total <= quantidadeExibida;
+  rodape.innerHTML = `Mostrando os ${quantidadeExibida} mais recentes de ${total}. <a href="#buscar">Ver todos</a>`;
+}
+
+export function atualizarPaginacao(navegacao, paginacao) {
+  const temMaisDeUmaPagina = Boolean(paginacao) && paginacao.totalPaginas > 1;
+  navegacao.hidden = !temMaisDeUmaPagina;
+  if (!temMaisDeUmaPagina) return;
+
+  $("#pagina-anterior").disabled = paginacao.pagina <= 1;
+  $("#pagina-seguinte").disabled = paginacao.pagina >= paginacao.totalPaginas;
+  $("#pagina-info").textContent = `Página ${paginacao.pagina} de ${paginacao.totalPaginas}`;
+}
+
 export function atualizarStatusServidor(online) {
   const status = $("#status");
   status.classList.toggle("ok", online);

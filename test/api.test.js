@@ -38,11 +38,12 @@ async function enviar(metodo, url, corpo) {
 }
 
 const cadastrar = (dados) => enviar("POST", urlUsuarios, dados);
-const buscar = async (nome) => (await fetch(`${urlUsuarios}?nome=${encodeURIComponent(nome)}`)).json();
+const listar = async (consulta = "") => (await fetch(`${urlUsuarios}${consulta}`)).json();
+const buscar = async (nome) => (await listar(`?nome=${encodeURIComponent(nome)}&limite=100`)).usuarios;
 const joao = { nome: "João Silva", email: "Joao@Exemplo.com", idade: 27 };
 
 test("começa sem nenhum usuário", async () => {
-  assert.deepEqual(await (await fetch(urlUsuarios)).json(), []);
+  assert.deepEqual(await listar(), { usuarios: [], paginacao: { pagina: 1, limite: 20, total: 0, totalPaginas: 0 } });
 });
 
 test("cadastra um usuário válido e padroniza o e-mail", async () => {
@@ -240,4 +241,59 @@ test("salvar sem nenhuma mudança não altera atualizadoEm", async (t) => {
 
   assert.equal(status, 200);
   assert.equal(corpo.atualizadoEm, criado.atualizadoEm);
+});
+
+test("pagina os resultados, mais recentes primeiro", async () => {
+  const letras = "ABCDEFGHIJKLMNOPQRSTUVWXY";
+  for (const letra of letras) {
+    await cadastrar({ nome: `Paginado ${letra}`, email: `paginado.${letra}@exemplo.com`, idade: 20 });
+  }
+
+  const primeira = await listar("?nome=paginado&limite=10");
+  assert.deepEqual(primeira.paginacao, { pagina: 1, limite: 10, total: 25, totalPaginas: 3 });
+  assert.equal(primeira.usuarios.length, 10);
+  assert.equal(primeira.usuarios[0].nome, "Paginado Y");
+
+  const ultima = await listar("?nome=paginado&limite=10&pagina=3");
+  assert.equal(ultima.usuarios.length, 5);
+  assert.equal(ultima.usuarios.at(-1).nome, "Paginado A");
+
+  const nomesDeTodasAsPaginas = [
+    ...primeira.usuarios,
+    ...(await listar("?nome=paginado&limite=10&pagina=2")).usuarios,
+    ...ultima.usuarios,
+  ].map((u) => u.nome);
+  assert.equal(new Set(nomesDeTodasAsPaginas).size, 25);
+});
+
+test("página além da última vem vazia, mas informa o total", async () => {
+  const { usuarios, paginacao } = await listar("?nome=paginado&limite=10&pagina=4");
+  assert.deepEqual(usuarios, []);
+  assert.equal(paginacao.total, 25);
+});
+
+test("sem parâmetros usa página 1 com 20 registros", async () => {
+  const { usuarios, paginacao } = await listar();
+  assert.equal(paginacao.pagina, 1);
+  assert.equal(paginacao.limite, 20);
+  assert.equal(usuarios.length, 20);
+});
+
+test("parâmetros de paginação inválidos respondem 400 apontando o campo", async () => {
+  const casos = {
+    "?pagina=0": "pagina",
+    "?pagina=abc": "pagina",
+    "?pagina=1.5": "pagina",
+    "?pagina=-1": "pagina",
+    "?pagina=1&pagina=2": "pagina",
+    "?limite=0": "limite",
+    "?limite=101": "limite",
+    "?limite=dez": "limite",
+  };
+  for (const [consulta, campo] of Object.entries(casos)) {
+    const resposta = await fetch(`${urlUsuarios}${consulta}`);
+    const corpo = await resposta.json();
+    assert.equal(resposta.status, 400, consulta);
+    assert.deepEqual(corpo.erros.map((erro) => erro.campo), [campo], consulta);
+  }
 });
