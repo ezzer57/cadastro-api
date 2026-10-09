@@ -7,17 +7,19 @@ const MAXIMO_DE_ITENS_ANIMADOS = 10;
 
 const $ = (seletor) => document.querySelector(seletor);
 
+const ICONE_EDITAR_PESSOA = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 15H7a4 4 0 0 0-4 4v2"/><path d="M21.4 16.6a1 1 0 0 0-3-3l-4 4a2 2 0 0 0-.5.9l-.8 2.8a.5.5 0 0 0 .6.6l2.9-.8a2 2 0 0 0 .8-.5z"/><circle cx="10" cy="7" r="4"/></svg>`;
 const ICONE_REMOVER_PESSOA = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m17 8 5 5"/><path d="m22 8-5 5"/></svg>`;
 const ICONE_BOLO = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><path d="M2 21h20"/><path d="M7 8v3"/><path d="M12 8v3"/><path d="M17 8v3"/></svg>`;
 
-function itemUsuario(usuario, posicao, { termo, comBotaoRemover }) {
+const BOTOES_DE_ACAO = `
+  <button type="button" class="btn-item" data-acao="editar">${ICONE_EDITAR_PESSOA}<span>Editar</span></button>
+  <button type="button" class="btn-item perigo" data-acao="remover">${ICONE_REMOVER_PESSOA}<span>Remover</span></button>`;
+
+function itemUsuario(usuario, posicao, { termo, comAcoes }) {
   const atrasoAnimacao = Math.min(posicao, MAXIMO_DE_ITENS_ANIMADOS) * ATRASO_ENTRE_ITENS_MS;
-  const botaoRemover = comBotaoRemover
-    ? `<button type="button" class="btn-danger" data-id="${escapeHtml(usuario.id)}" data-nome="${escapeHtml(usuario.nome)}">${ICONE_REMOVER_PESSOA}<span>Remover</span></button>`
-    : "";
 
   return `
-    <li style="animation-delay: ${atrasoAnimacao}ms">
+    <li data-id="${escapeHtml(usuario.id)}" data-nome="${escapeHtml(usuario.nome)}" style="animation-delay: ${atrasoAnimacao}ms">
       <div class="user-info">
         <span class="avatar" style="background: ${corAvatar(usuario.nome)}">${escapeHtml(iniciais(usuario.nome))}</span>
         <div>
@@ -27,17 +29,17 @@ function itemUsuario(usuario, posicao, { termo, comBotaoRemover }) {
       </div>
       <div class="user-actions">
         <span class="badge">${ICONE_BOLO}${plural(usuario.idade, "ano", "anos")}</span>
-        ${botaoRemover}
+        ${comAcoes ? BOTOES_DE_ACAO : ""}
       </div>
     </li>`;
 }
 
-export function renderizarLista(lista, usuarios, { vazio, termo = "", comBotaoRemover = false }) {
+export function renderizarLista(lista, usuarios, { vazio, termo = "", comAcoes = false }) {
   if (!usuarios.length) {
     mostrarMensagemNaLista(lista, vazio);
     return;
   }
-  lista.innerHTML = usuarios.map((usuario, i) => itemUsuario(usuario, i, { termo, comBotaoRemover })).join("");
+  lista.innerHTML = usuarios.map((usuario, i) => itemUsuario(usuario, i, { termo, comAcoes })).join("");
 }
 
 export function mostrarMensagemNaLista(lista, mensagem) {
@@ -51,22 +53,38 @@ export function atualizarStatusServidor(online) {
   $("#status-text").textContent = online ? "Servidor online" : "Servidor offline";
 }
 
-export function mostrarSucessoFormulario(nome) {
-  const caixa = $("#form-msg");
+export function inserirCamposDeUsuario(formulario) {
+  const modelo = $("#modelo-campos-usuario");
+  formulario.querySelector("[data-campos-usuario]").replaceWith(modelo.content.cloneNode(true));
+}
+
+export function preencherFormulario(formulario, usuario) {
+  formulario.nome.value = usuario.nome;
+  formulario.email.value = usuario.email;
+  formulario.idade.value = usuario.idade;
+}
+
+export function mostrarSucessoCadastro(caixa, nome) {
   caixa.className = "msg ok";
   caixa.innerHTML = `Cadastro de <strong>${escapeHtml(nome)}</strong> salvo com sucesso.`;
   caixa.hidden = false;
 }
 
-export function mostrarErrosFormulario(erros) {
-  const caixa = $("#form-msg");
+export function mostrarErros(caixa, erros) {
   caixa.className = "msg err";
   caixa.innerHTML = `<ul>${erros.map((erro) => `<li>${escapeHtml(erro)}</li>`).join("")}</ul>`;
   caixa.hidden = false;
 }
 
-export function esconderMensagemFormulario() {
-  $("#form-msg").hidden = true;
+export function esconderMensagem(caixa) {
+  caixa.hidden = true;
+}
+
+export function configurarModal(modal) {
+  modal.addEventListener("click", (evento) => {
+    const clicouForaDoConteudo = evento.target === modal;
+    if (clicouForaDoConteudo || evento.target.closest("[data-fechar-modal]")) modal.close();
+  });
 }
 
 let timerToast;

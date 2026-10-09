@@ -3,7 +3,7 @@ const crypto = require("crypto");
 const LIMITES = { nomeMin: 2, idadeMin: 0, idadeMax: 150 };
 const FORMATO_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function validarCadastro({ nome, email, idade } = {}) {
+function validarUsuario({ nome, email, idade } = {}) {
   const erros = [];
 
   if (typeof nome !== "string" || nome.trim().length < LIMITES.nomeMin) {
@@ -19,14 +19,20 @@ function validarCadastro({ nome, email, idade } = {}) {
   return erros;
 }
 
-function criarUsuario({ nome, email, idade }) {
+function padronizarDados({ nome, email, idade }) {
   return {
-    id: crypto.randomUUID(),
     nome: nome.trim().normalize("NFC"),
     email: email.trim().toLowerCase(),
     idade,
+  };
+}
+
+function criarUsuario(dados) {
+  return {
+    id: crypto.randomUUID(),
+    ...padronizarDados(dados),
     criadoEm: new Date().toISOString(),
   };
 }
 
-module.exports = { LIMITES, validarCadastro, criarUsuario };
+module.exports = { LIMITES, validarUsuario, padronizarDados, criarUsuario };

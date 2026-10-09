@@ -21,16 +21,21 @@ const $ = (seletor) => document.querySelector(seletor);
 
 const elementos = {
   formulario: $("#form-cadastro"),
+  mensagemCadastro: $("#form-msg"),
   listaCadastro: $("#lista-cadastro"),
   listaBusca: $("#lista-busca"),
   campoBusca: $("#busca"),
   abaPesquisar: $('.tab[data-tab="buscar"]'),
+  modalEdicao: $("#modal-edicao"),
+  formularioEdicao: $("#form-edicao"),
+  mensagemEdicao: $("#edicao-msg"),
 };
 
 const estado = {
   totalUsuarios: 0,
   numeroDaUltimaBusca: 0,
   timerBusca: null,
+  idEmEdicao: null,
 };
 
 function atualizarTotal(total) {
@@ -53,6 +58,24 @@ async function pesquisaLiberada() {
   return estado.totalUsuarios > 0;
 }
 
+function lerFormulario(formulario) {
+  return {
+    nome: formulario.nome.value,
+    email: formulario.email.value,
+    idade: formulario.idade.value === "" ? null : Number(formulario.idade.value),
+  };
+}
+
+async function executarComBotaoTravado(formulario, acao) {
+  const botao = formulario.querySelector("button[type=submit]");
+  botao.disabled = true;
+  try {
+    await acao();
+  } finally {
+    botao.disabled = false;
+  }
+}
+
 async function carregarListaCadastro() {
   try {
     const usuarios = await api.listar();
@@ -65,31 +88,21 @@ async function carregarListaCadastro() {
   }
 }
 
-function lerFormulario(formulario) {
-  return {
-    nome: formulario.nome.value,
-    email: formulario.email.value,
-    idade: formulario.idade.value === "" ? null : Number(formulario.idade.value),
-  };
-}
-
 async function cadastrar(evento) {
   evento.preventDefault();
   const formulario = evento.target;
-  const botao = formulario.querySelector("button[type=submit]");
 
-  botao.disabled = true;
-  try {
-    const usuario = await api.cadastrar(lerFormulario(formulario));
-    ui.mostrarSucessoFormulario(usuario.nome);
-    formulario.reset();
-    formulario.nome.focus();
-    carregarListaCadastro();
-  } catch (erro) {
-    ui.mostrarErrosFormulario(mensagensDeErro(erro));
-  } finally {
-    botao.disabled = false;
-  }
+  await executarComBotaoTravado(formulario, async () => {
+    try {
+      const usuario = await api.cadastrar(lerFormulario(formulario));
+      ui.mostrarSucessoCadastro(elementos.mensagemCadastro, usuario.nome);
+      formulario.reset();
+      formulario.nome.focus();
+      carregarListaCadastro();
+    } catch (erro) {
+      ui.mostrarErros(elementos.mensagemCadastro, mensagensDeErro(erro));
+    }
+  });
 }
 
 async function pesquisar() {
@@ -107,7 +120,7 @@ async function pesquisar() {
     $("#busca-contagem").textContent = plural(usuarios.length, "registro", "registros");
     ui.renderizarLista(elementos.listaBusca, usuarios, {
       termo,
-      comBotaoRemover: true,
+      comAcoes: true,
       vazio: termo ? `Ninguém encontrado com “${termo}”. Tente outra parte do nome.` : "Nenhum registro por aqui ainda.",
     });
   } catch {
@@ -120,6 +133,39 @@ async function pesquisar() {
 function pesquisarQuandoPararDeDigitar() {
   clearTimeout(estado.timerBusca);
   estado.timerBusca = setTimeout(pesquisar, ESPERA_FIM_DIGITACAO_MS);
+}
+
+async function abrirEdicao(id) {
+  try {
+    const usuario = await api.buscarPorId(id);
+    estado.idEmEdicao = usuario.id;
+
+    $("#edicao-id").textContent = usuario.id;
+    ui.esconderMensagem(elementos.mensagemEdicao);
+    ui.preencherFormulario(elementos.formularioEdicao, usuario);
+    elementos.modalEdicao.showModal();
+    elementos.formularioEdicao.nome.focus();
+  } catch (erro) {
+    const naoExisteMais = erro.status === STATUS_NAO_ENCONTRADO;
+    ui.mostrarToast(naoExisteMais ? "Esse registro não existe mais." : "Não foi possível abrir o registro.");
+    pesquisar();
+  }
+}
+
+async function salvarEdicao(evento) {
+  evento.preventDefault();
+  const formulario = evento.target;
+
+  await executarComBotaoTravado(formulario, async () => {
+    try {
+      const usuario = await api.atualizar(estado.idEmEdicao, lerFormulario(formulario));
+      elementos.modalEdicao.close();
+      ui.mostrarToast(`Registro de ${usuario.nome} atualizado.`);
+      pesquisar();
+    } catch (erro) {
+      ui.mostrarErros(elementos.mensagemEdicao, mensagensDeErro(erro));
+    }
+  });
 }
 
 function cliqueJaEraConfirmacao(botao) {
@@ -136,10 +182,10 @@ function cliqueJaEraConfirmacao(botao) {
   return false;
 }
 
-async function remover(botao) {
+async function remover(botao, item) {
   botao.disabled = true;
   try {
-    await api.remover(botao.dataset.id);
+    await api.remover(item.dataset.id);
   } catch (erro) {
     const jaTinhaSidoRemovido = erro.status === STATUS_NAO_ENCONTRADO;
     if (!jaTinhaSidoRemovido) {
@@ -149,7 +195,7 @@ async function remover(botao) {
     }
   }
 
-  ui.mostrarToast(`Registro de ${botao.dataset.nome} removido.`);
+  ui.mostrarToast(`Registro de ${item.dataset.nome} removido.`);
 
   if (await pesquisaLiberada()) {
     pesquisar();
@@ -161,13 +207,21 @@ async function remover(botao) {
   avisarBloqueio(AVISOS.baseVazia);
 }
 
+const ACOES_DA_LISTA = {
+  editar: (botao, item) => abrirEdicao(item.dataset.id),
+  remover: (botao, item) => {
+    if (cliqueJaEraConfirmacao(botao)) remover(botao, item);
+  },
+};
+
 function aoClicarNaListaDeBusca(evento) {
-  const botao = evento.target.closest(".btn-danger");
-  if (botao && cliqueJaEraConfirmacao(botao)) remover(botao);
+  const botao = evento.target.closest("button[data-acao]");
+  if (!botao) return;
+  ACOES_DA_LISTA[botao.dataset.acao](botao, botao.closest("li"));
 }
 
 function exibirAba(aba) {
-  ui.esconderMensagemFormulario();
+  ui.esconderMensagem(elementos.mensagemCadastro);
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === aba));
   $("#view-cadastro").hidden = aba !== "cadastro";
   $("#view-buscar").hidden = aba !== "buscar";
@@ -192,9 +246,14 @@ async function navegar() {
   carregarListaCadastro();
 }
 
+ui.inserirCamposDeUsuario(elementos.formulario);
+ui.inserirCamposDeUsuario(elementos.formularioEdicao);
+ui.configurarModal(elementos.modalEdicao);
+
 window.addEventListener("conexao", (evento) => ui.atualizarStatusServidor(evento.detail.online));
 window.addEventListener("hashchange", navegar);
 elementos.formulario.addEventListener("submit", cadastrar);
+elementos.formularioEdicao.addEventListener("submit", salvarEdicao);
 elementos.campoBusca.addEventListener("input", pesquisarQuandoPararDeDigitar);
 elementos.listaBusca.addEventListener("click", aoClicarNaListaDeBusca);
 $("#btn-atualizar").addEventListener("click", carregarListaCadastro);

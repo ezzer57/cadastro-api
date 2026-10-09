@@ -21,13 +21,27 @@ function criarRepositorio(caminhoArquivo) {
       return ler().filter((usuario) => normalizar(usuario.nome).includes(termo));
     },
 
-    existeEmail(email) {
-      return ler().some((usuario) => usuario.email === email);
+    buscarPorIdOuNulo(id) {
+      return ler().find((usuario) => usuario.id === id) ?? null;
+    },
+
+    emailEmUso(email, { excetoId = null } = {}) {
+      return ler().some((usuario) => usuario.email === email && usuario.id !== excetoId);
     },
 
     adicionar(usuario) {
       gravar([...ler(), usuario]);
       return usuario;
+    },
+
+    atualizarPorIdOuNulo(id, dados) {
+      const usuarios = ler();
+      const indice = usuarios.findIndex((usuario) => usuario.id === id);
+      if (indice === -1) return null;
+
+      usuarios[indice] = { ...usuarios[indice], ...dados };
+      gravar(usuarios);
+      return usuarios[indice];
     },
 
     removerPorIdOuNulo(id) {

@@ -1,6 +1,6 @@
 # Cadastro.api
 
-API em **Node.js + Express** com um site para cadastrar usuários, buscá-los pelo nome e removê-los.
+CRUD completo em **Node.js + Express**, com um site para cadastrar usuários, buscá-los pelo nome, editá-los e removê-los.
 Os dados ficam salvos em `data/usuarios.json` (não precisa de banco de dados).
 
 No site, a aba **Pesquisar** só abre depois que existir pelo menos 1 usuário cadastrado.
@@ -32,6 +32,8 @@ Variáveis de ambiente opcionais: `PORT` (padrão `3000`) e `DATA_FILE` (caminho
 | POST   | `/api/usuarios`            | Cadastra um usuário                         |
 | GET    | `/api/usuarios?nome=texto` | Busca usuários pelo nome (busca parcial)    |
 | GET    | `/api/usuarios`            | Lista todos os usuários                     |
+| GET    | `/api/usuarios/:id`        | Busca um usuário pelo `id`                  |
+| PUT    | `/api/usuarios/:id`        | Edita um usuário pelo `id`                  |
 | DELETE | `/api/usuarios/:id`        | Remove um usuário pelo `id`                 |
 
 A busca ignora maiúsculas/minúsculas e acentos: `?nome=joao` encontra "João Silva".
@@ -70,6 +72,34 @@ Respostas:
 ]
 ```
 
+### Buscar pelo id: `GET /api/usuarios/:id`
+
+Respostas:
+- `200 OK`: o usuário
+- `404 Not Found`: nenhum usuário com esse `id`
+
+### Editar: `PUT /api/usuarios/:id`
+
+Body (JSON) com todos os campos, seguindo as mesmas regras do cadastro:
+
+```json
+{
+  "nome": "João Silva Santos",
+  "email": "joao.santos@exemplo.com",
+  "idade": 28
+}
+```
+
+O `id` e o `criadoEm` não mudam. A pessoa pode manter o próprio e-mail.
+
+Respostas:
+- `200 OK`: usuário atualizado
+- `400 Bad Request`: dados inválidos
+- `404 Not Found`: nenhum usuário com esse `id`
+- `409 Conflict`: o e-mail já pertence a outro usuário
+
+No site, o botão **Editar** fica na aba Pesquisar, ao lado de "Remover", e abre uma janela com os dados preenchidos.
+
 ### Remover: `DELETE /api/usuarios/:id`
 
 Use o `id` retornado no cadastro (ou na busca).
@@ -81,8 +111,9 @@ Respostas:
 ## Postman
 
 Importe o arquivo `cadastro-api.postman_collection.json` no Postman (File → Import).
-A coleção já vem com as requisições de cadastro, busca, listagem e remoção.
-Ao rodar "Cadastrar usuário", o `id` criado é guardado automaticamente e usado em "Apagar usuário".
+A coleção já vem com as requisições de cadastro, busca, listagem, busca pelo id, edição e remoção.
+Ao rodar "Cadastrar usuário", o `id` criado é guardado automaticamente e usado em "Buscar usuário pelo id",
+"Editar usuário" e "Apagar usuário".
 
 ## Estrutura
 
@@ -98,9 +129,9 @@ test/
   usuarios.test.js       → testes automáticos da API (node:test, sem dependências extras)
 public/
   index.html, style.css  → página e visual
-  js/main.js             → ponto de entrada do site: eventos, abas e bloqueio da pesquisa
+  js/main.js             → ponto de entrada do site: eventos, abas, edição e bloqueio da pesquisa
   js/api.js              → todas as chamadas HTTP para a API
-  js/componentes.js      → peças visuais: lista, mensagens, toast e aviso
+  js/componentes.js      → peças visuais: lista, campos do formulário, janela, mensagens, toast e aviso
   js/utils.js            → funções puras de texto (escape de HTML, iniciais, destaque)
 data/usuarios.json       → "banco de dados"
 ```

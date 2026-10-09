@@ -101,3 +101,60 @@ test("rota inexistente da API responde 404 em JSON", async () => {
   assert.equal(status, 404);
   assert.ok(corpo.erros);
 });
+
+test("busca um usuário pelo id e responde 404 para id inexistente", async () => {
+  const { corpo: criado } = await cadastrar({ nome: "Ana Lima", email: "ana@exemplo.com", idade: 30 });
+
+  const encontrado = await enviar("GET", `${urlUsuarios}/${criado.id}`);
+  assert.equal(encontrado.status, 200);
+  assert.deepEqual(encontrado.corpo, criado);
+
+  const inexistente = await enviar("GET", `${urlUsuarios}/id-que-nao-existe`);
+  assert.equal(inexistente.status, 404);
+});
+
+test("edita um usuário mantendo id e data de criação", async () => {
+  const [ana] = await buscar("ana lima");
+
+  const { status, corpo } = await enviar("PUT", `${urlUsuarios}/${ana.id}`, {
+    nome: "Ana Lima Souza",
+    email: "Ana.Souza@Exemplo.com",
+    idade: 31,
+  });
+
+  assert.equal(status, 200);
+  assert.equal(corpo.id, ana.id);
+  assert.equal(corpo.criadoEm, ana.criadoEm);
+  assert.equal(corpo.nome, "Ana Lima Souza");
+  assert.equal(corpo.email, "ana.souza@exemplo.com");
+  assert.equal(corpo.idade, 31);
+  assert.deepEqual((await buscar("souza")).map((u) => u.id), [ana.id]);
+});
+
+test("permite editar mantendo o próprio e-mail", async () => {
+  const [ana] = await buscar("ana lima");
+  const { status } = await enviar("PUT", `${urlUsuarios}/${ana.id}`, { nome: "Ana L. Souza", email: ana.email, idade: 32 });
+  assert.equal(status, 200);
+});
+
+test("não permite editar para o e-mail de outro usuário", async () => {
+  const { corpo: bia } = await cadastrar({ nome: "Bia Rocha", email: "bia@exemplo.com", idade: 25 });
+  const [ana] = await buscar("ana");
+
+  const { status } = await enviar("PUT", `${urlUsuarios}/${bia.id}`, { nome: "Bia Rocha", email: ana.email, idade: 25 });
+  assert.equal(status, 409);
+});
+
+test("edição com dados inválidos responde 400 e não altera o usuário", async () => {
+  const [bia] = await buscar("bia");
+
+  const { status, corpo } = await enviar("PUT", `${urlUsuarios}/${bia.id}`, { nome: "", email: "x", idade: null });
+  assert.equal(status, 400);
+  assert.equal(corpo.erros.length, 3);
+  assert.deepEqual((await enviar("GET", `${urlUsuarios}/${bia.id}`)).corpo, bia);
+});
+
+test("editar id inexistente responde 404", async () => {
+  const { status } = await enviar("PUT", `${urlUsuarios}/id-que-nao-existe`, { nome: "Fulano", email: "fulano@exemplo.com", idade: 40 });
+  assert.equal(status, 404);
+});

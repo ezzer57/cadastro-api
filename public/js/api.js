@@ -12,6 +12,18 @@ function notificarConexao(online) {
   window.dispatchEvent(new CustomEvent("conexao", { detail: { online } }));
 }
 
+function urlDoUsuario(id) {
+  return `${URL_USUARIOS}/${encodeURIComponent(id)}`;
+}
+
+function comCorpoJson(metodo, dados) {
+  return {
+    method: metodo,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(dados),
+  };
+}
+
 async function requisicao(url, opcoes = {}) {
   let resposta;
   try {
@@ -32,13 +44,13 @@ export const api = {
 
   buscarPorNome: (nome) => requisicao(`${URL_USUARIOS}?nome=${encodeURIComponent(nome)}`),
 
-  cadastrar: (dados) => requisicao(URL_USUARIOS, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(dados),
-  }),
+  buscarPorId: (id) => requisicao(urlDoUsuario(id)),
 
-  remover: (id) => requisicao(`${URL_USUARIOS}/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  cadastrar: (dados) => requisicao(URL_USUARIOS, comCorpoJson("POST", dados)),
+
+  atualizar: (id, dados) => requisicao(urlDoUsuario(id), comCorpoJson("PUT", dados)),
+
+  remover: (id) => requisicao(urlDoUsuario(id), { method: "DELETE" }),
 };
 
 export function mensagensDeErro(erro) {

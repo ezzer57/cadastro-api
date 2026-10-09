@@ -44,7 +44,7 @@
         <strong id="aviso-titulo"></strong>
         <p id="aviso-texto"></p>
       </div>
-      <button id="aviso-fechar" class="pop-close" type="button" aria-label="Fechar aviso">
+      <button id="aviso-fechar" class="btn-fechar" type="button" aria-label="Fechar aviso">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
       </button>
       <span class="pop-bar"></span>
@@ -87,27 +87,7 @@
           </div>
 
           <form id="form-cadastro" class="form" novalidate>
-            <label>
-              Nome completo
-              <span class="input-icone">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
-                <input name="nome" type="text" placeholder="Como a pessoa se chama?" required minlength="2" />
-              </span>
-            </label>
-            <label>
-              E-mail
-              <span class="input-icone">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg>
-                <input name="email" type="email" placeholder="nome@dominio.com" required />
-              </span>
-            </label>
-            <label class="short">
-              Idade
-              <span class="input-icone">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><path d="M2 21h20"/><path d="M7 8v3"/><path d="M12 8v3"/><path d="M17 8v3"/></svg>
-                <input name="idade" type="number" min="0" max="150" step="1" value="18" required />
-              </span>
-            </label>
+            <div data-campos-usuario></div>
 
             <div id="form-msg" class="msg" role="status" hidden></div>
 
@@ -142,6 +122,59 @@
       </div>
     </section>
   </main>
+
+  <dialog id="modal-edicao" class="card modal" aria-labelledby="titulo-edicao">
+    <div class="card-head">
+      <span class="card-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 15H7a4 4 0 0 0-4 4v2"/><path d="M21.4 16.6a1 1 0 0 0-3-3l-4 4a2 2 0 0 0-.5.9l-.8 2.8a.5.5 0 0 0 .6.6l2.9-.8a2 2 0 0 0 .8-.5z"/><circle cx="10" cy="7" r="4"/></svg>
+      </span>
+      <div class="card-head-texto">
+        <h2 id="titulo-edicao">Editar registro</h2>
+        <code>PUT /api/usuarios/<span id="edicao-id"></span></code>
+      </div>
+      <button type="button" class="btn-fechar" data-fechar-modal aria-label="Fechar edição">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+
+    <form id="form-edicao" class="form" novalidate>
+      <div data-campos-usuario></div>
+
+      <div id="edicao-msg" class="msg" role="status" hidden></div>
+
+      <div class="modal-acoes">
+        <button type="button" class="btn-ghost" data-fechar-modal>Cancelar</button>
+        <button type="submit" class="btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
+          Salvar alterações
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+  <template id="modelo-campos-usuario">
+    <label>
+      Nome completo
+      <span class="input-icone">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
+        <input name="nome" type="text" placeholder="Como a pessoa se chama?" required minlength="2" />
+      </span>
+    </label>
+    <label>
+      E-mail
+      <span class="input-icone">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg>
+        <input name="email" type="email" placeholder="nome@dominio.com" required />
+      </span>
+    </label>
+    <label class="short">
+      Idade
+      <span class="input-icone">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><path d="M2 21h20"/><path d="M7 8v3"/><path d="M12 8v3"/><path d="M17 8v3"/></svg>
+        <input name="idade" type="number" min="0" max="150" step="1" value="18" required />
+      </span>
+    </label>
+  </template>
 
   <div id="toast" class="toast" role="status" hidden></div>
 

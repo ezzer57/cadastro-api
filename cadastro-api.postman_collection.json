@@ -53,6 +53,25 @@
       }
     },
     {
+      "name": "Buscar usuário pelo id",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/usuarios/{{usuarioId}}"
+      }
+    },
+    {
+      "name": "Editar usuário",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/usuarios/{{usuarioId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nome\": \"João Silva Santos\",\n  \"email\": \"joao.santos@exemplo.com\",\n  \"idade\": 28\n}"
+        }
+      }
+    },
+    {
       "name": "Apagar usuário",
       "request": {
         "method": "DELETE",
