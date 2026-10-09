@@ -113,4 +113,4 @@ function validarPaginacao({ pagina, limite }) {
   return erros;
 }
 
-module.exports = { LIMITES, validarDadosDoUsuario, validarTermoDeBusca, validarPaginacao };
+module.exports = { validarDadosDoUsuario, validarTermoDeBusca, validarPaginacao };

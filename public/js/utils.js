@@ -6,7 +6,7 @@ export function escapeHtml(texto) {
   return String(texto).replace(/[&<>"']/g, (caractere) => ENTIDADES_HTML[caractere]);
 }
 
-export function normalizar(texto) {
+function normalizar(texto) {
   return String(texto).normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 }
 

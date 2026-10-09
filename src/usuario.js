@@ -41,4 +41,4 @@ function aplicarEdicao(usuario, dados) {
   return { ...usuario, ...novosDados, atualizadoEm: agoraEmIso() };
 }
 
-module.exports = { padronizarNome, padronizarEmail, padronizarDados, criarUsuario, aplicarEdicao };
+module.exports = { padronizarNome, padronizarEmail, criarUsuario, aplicarEdicao };

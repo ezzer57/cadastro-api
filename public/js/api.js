@@ -1,6 +1,6 @@
 const URL_USUARIOS = "/api/usuarios";
 
-export class ErroApi extends Error {
+class ErroApi extends Error {
   constructor(status, erros) {
     super(erros.map((erro) => erro.mensagem).join(" "));
     this.status = status;

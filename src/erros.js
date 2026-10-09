@@ -19,4 +19,4 @@ class EmailJaCadastrado extends ErroDeDominio {
   }
 }
 
-module.exports = { ErroDeDominio, ErroDeValidacao, UsuarioNaoEncontrado, EmailJaCadastrado };
+module.exports = { ErroDeValidacao, UsuarioNaoEncontrado, EmailJaCadastrado };
