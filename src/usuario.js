@@ -1,6 +1,12 @@
 const crypto = require("crypto");
 const { limparEspacos } = require("./texto");
 
+const CAMPOS_EDITAVEIS = ["nome", "email", "idade"];
+
+function agoraEmIso() {
+  return new Date().toISOString();
+}
+
 function padronizarNome(nome) {
   return limparEspacos(nome).normalize("NFC");
 }
@@ -18,11 +24,21 @@ function padronizarDados({ nome, email, idade }) {
 }
 
 function criarUsuario(dados) {
+  const agora = agoraEmIso();
   return {
     id: crypto.randomUUID(),
     ...padronizarDados(dados),
-    criadoEm: new Date().toISOString(),
+    criadoEm: agora,
+    atualizadoEm: agora,
   };
 }
 
-module.exports = { padronizarNome, padronizarEmail, padronizarDados, criarUsuario };
+function aplicarEdicao(usuario, dados) {
+  const novosDados = padronizarDados(dados);
+  const houveMudanca = CAMPOS_EDITAVEIS.some((campo) => usuario[campo] !== novosDados[campo]);
+  if (!houveMudanca) return usuario;
+
+  return { ...usuario, ...novosDados, atualizadoEm: agoraEmIso() };
+}
+
+module.exports = { padronizarNome, padronizarEmail, padronizarDados, criarUsuario, aplicarEdicao };

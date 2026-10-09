@@ -50,7 +50,8 @@ Todas as respostas são em JSON, inclusive os erros.
 | `email` | Obrigatório, texto, até 254 caracteres (64 antes do `@`), formato `nome@dominio.com`, único. Salvo em minúsculas. |
 | `idade` | Obrigatória, **número inteiro** (não aceita `"25"` em texto nem `25.5`), de 0 a 150. |
 
-Qualquer outro campo enviado (como `id`, `criadoEm` ou `telefone`) é recusado.
+Qualquer outro campo enviado (como `id`, `criadoEm`, `atualizadoEm` ou `telefone`) é recusado.
+Esses campos são controlados pelo próprio sistema.
 
 ### Formato dos erros
 
@@ -93,7 +94,7 @@ Body (JSON):
 ```
 
 Respostas:
-- `201 Created`: usuário criado (retorna o usuário com `id` e `criadoEm`)
+- `201 Created`: usuário criado (retorna o usuário com `id`, `criadoEm` e `atualizadoEm`)
 - `400 Bad Request`: dados inválidos ou JSON malformado (veja [Validação](#validação))
 - `409 Conflict`: e-mail já cadastrado
 - `413 Payload Too Large`: corpo da requisição grande demais
@@ -107,10 +108,16 @@ Respostas:
     "nome": "João Silva",
     "email": "joao@exemplo.com",
     "idade": 27,
-    "criadoEm": "2026-10-09T12:00:00.000Z"
+    "criadoEm": "2026-10-09T12:00:00.000Z",
+    "atualizadoEm": "2026-10-09T15:30:00.000Z"
   }
 ]
 ```
+
+| Campo          | Significado |
+|----------------|-------------|
+| `criadoEm`     | Data e hora do cadastro (UTC, formato ISO 8601). Nunca muda. |
+| `atualizadoEm` | Data e hora da última edição. No cadastro, é igual a `criadoEm`. |
 
 ### Buscar pelo id: `GET /api/usuarios/:id`
 
@@ -131,6 +138,7 @@ Body (JSON) com todos os campos, seguindo as mesmas regras do cadastro:
 ```
 
 O `id` e o `criadoEm` não mudam. A pessoa pode manter o próprio e-mail.
+O `atualizadoEm` recebe a data e hora atuais, a não ser que nada tenha mudado: salvar os mesmos dados não conta como edição.
 
 Respostas:
 - `200 OK`: usuário atualizado

@@ -1,5 +1,5 @@
 const { validarDadosDoUsuario, validarTermoDeBusca } = require("./validacao");
-const { padronizarDados, criarUsuario } = require("./usuario");
+const { criarUsuario, aplicarEdicao } = require("./usuario");
 const { ErroDeValidacao, UsuarioNaoEncontrado, EmailJaCadastrado } = require("./erros");
 
 function garantirQueNaoHaErros(erros) {
@@ -37,11 +37,13 @@ function criarServicoDeUsuarios(repositorio) {
 
     atualizar(id, dados) {
       garantirQueNaoHaErros(validarDadosDoUsuario(dados));
-      buscarPorId(id);
+      const usuarioAtual = buscarPorId(id);
 
-      const dadosPadronizados = padronizarDados(dados);
-      garantirEmailDisponivel(dadosPadronizados.email, id);
-      return repositorio.atualizarPorIdOuNulo(id, dadosPadronizados);
+      const usuarioEditado = aplicarEdicao(usuarioAtual, dados);
+      if (usuarioEditado === usuarioAtual) return usuarioAtual;
+
+      garantirEmailDisponivel(usuarioEditado.email, id);
+      return repositorio.atualizarPorIdOuNulo(id, usuarioEditado);
     },
 
     remover(id) {

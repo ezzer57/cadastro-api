@@ -10,6 +10,12 @@ export function normalizar(texto) {
   return String(texto).normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 }
 
+const FORMATO_DATA_HORA = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
+
+export function formatarDataHora(dataIso) {
+  return FORMATO_DATA_HORA.format(new Date(dataIso));
+}
+
 export function plural(quantidade, singular, pluralTexto) {
   return `${quantidade} ${quantidade === 1 ? singular : pluralTexto}`;
 }

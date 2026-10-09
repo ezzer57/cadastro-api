@@ -210,3 +210,34 @@ test("corpo grande demais responde 413 em JSON", async () => {
   assert.equal(status, 413);
   assert.ok(corpo.erros);
 });
+
+test("cadastro começa com atualizadoEm igual a criadoEm", async () => {
+  const { corpo } = await cadastrar({ nome: "Davi Costa", email: "davi@exemplo.com", idade: 33 });
+  assert.equal(corpo.atualizadoEm, corpo.criadoEm);
+});
+
+test("editar muda atualizadoEm e mantém criadoEm", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: new Date("2026-05-01T10:00:00.000Z") });
+  const { corpo: criado } = await cadastrar({ nome: "Eva Prado", email: "eva@exemplo.com", idade: 41 });
+
+  t.mock.timers.tick(60_000);
+  const { corpo: editado } = await enviar("PUT", `${urlUsuarios}/${criado.id}`, { nome: "Eva Prado", email: "eva@exemplo.com", idade: 42 });
+
+  assert.equal(editado.criadoEm, "2026-05-01T10:00:00.000Z");
+  assert.equal(editado.atualizadoEm, "2026-05-01T10:01:00.000Z");
+});
+
+test("salvar sem nenhuma mudança não altera atualizadoEm", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: new Date("2026-06-01T08:00:00.000Z") });
+  const { corpo: criado } = await cadastrar({ nome: "Fábio Reis", email: "fabio@exemplo.com", idade: 50 });
+
+  t.mock.timers.tick(60_000);
+  const { status, corpo } = await enviar("PUT", `${urlUsuarios}/${criado.id}`, {
+    nome: "  Fábio   Reis ",
+    email: "FABIO@exemplo.com",
+    idade: 50,
+  });
+
+  assert.equal(status, 200);
+  assert.equal(corpo.atualizadoEm, criado.atualizadoEm);
+});

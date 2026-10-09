@@ -55,6 +55,7 @@ test("o banco recusa dados que furam as regras, mesmo sem passar pela validaçã
       { nome: "a".repeat(101) },
       { email: "SEM-MINUSCULAS@EXEMPLO.COM" },
       { email: "sem-arroba" },
+      { atualizadoEm: "2000-01-01T00:00:00.000Z" },
     ];
     for (const dados of invalidos) {
       const usuario = { ...novoUsuario(), ...dados };
@@ -95,6 +96,7 @@ test("atualiza um banco antigo, sem as regras, mantendo os dados", () => {
 
   const repositorio = criarRepositorio(arquivo);
   assert.deepEqual(repositorio.listar().map((u) => u.id), ["id-1", "id-2"]);
+  assert.ok(repositorio.listar().every((u) => u.atualizadoEm === u.criadoEm));
   assert.throws(() => repositorio.adicionar({ ...novoUsuario(), idade: 999 }), /CHECK constraint failed/);
   repositorio.fechar();
 

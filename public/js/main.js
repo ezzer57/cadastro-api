@@ -1,6 +1,6 @@
 import { api, errosDaResposta } from "./api.js";
 import * as ui from "./componentes.js";
-import { plural } from "./utils.js";
+import { plural, formatarDataHora } from "./utils.js";
 
 const ESPERA_FIM_DIGITACAO_MS = 250;
 const PRAZO_PARA_CONFIRMAR_REMOCAO_MS = 3000;
@@ -35,7 +35,7 @@ const estado = {
   totalUsuarios: 0,
   numeroDaUltimaBusca: 0,
   timerBusca: null,
-  idEmEdicao: null,
+  usuarioEmEdicao: null,
 };
 
 function atualizarTotal(total) {
@@ -147,12 +147,19 @@ function pesquisarQuandoPararDeDigitar() {
   estado.timerBusca = setTimeout(pesquisar, ESPERA_FIM_DIGITACAO_MS);
 }
 
+function descreverDatas({ criadoEm, atualizadoEm }) {
+  const cadastro = `Cadastrado em ${formatarDataHora(criadoEm)}`;
+  const nuncaFoiEditado = atualizadoEm === criadoEm;
+  return nuncaFoiEditado ? `${cadastro} · nunca editado` : `${cadastro} · editado em ${formatarDataHora(atualizadoEm)}`;
+}
+
 async function abrirEdicao(id) {
   try {
     const usuario = await api.buscarPorId(id);
-    estado.idEmEdicao = usuario.id;
+    estado.usuarioEmEdicao = usuario;
 
     $("#edicao-id").textContent = usuario.id;
+    $("#edicao-datas").textContent = descreverDatas(usuario);
     limparFeedbackDoFormulario(elementos.formularioEdicao, elementos.mensagemEdicao);
     ui.preencherFormulario(elementos.formularioEdicao, usuario);
     elementos.modalEdicao.showModal();
@@ -170,9 +177,12 @@ async function salvarEdicao(evento) {
 
   await executarComBotaoTravado(formulario, async () => {
     try {
-      const usuario = await api.atualizar(estado.idEmEdicao, lerFormulario(formulario));
+      const antes = estado.usuarioEmEdicao;
+      const usuario = await api.atualizar(antes.id, lerFormulario(formulario));
+      const nadaMudou = usuario.atualizadoEm === antes.atualizadoEm;
+
       elementos.modalEdicao.close();
-      ui.mostrarToast(`Registro de ${usuario.nome} atualizado.`);
+      ui.mostrarToast(nadaMudou ? "Nenhuma alteração para salvar." : `Registro de ${usuario.nome} atualizado.`);
       pesquisar();
     } catch (erro) {
       exibirErrosDoFormulario(formulario, elementos.mensagemEdicao, erro);
