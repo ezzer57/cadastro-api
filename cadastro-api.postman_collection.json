@@ -1,0 +1,63 @@
+{
+  "info": {
+    "name": "Cadastro.api",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "usuarioId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Cadastrar usuário",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "  pm.collectionVariables.set(\"usuarioId\", pm.response.json().id);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/usuarios",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nome\": \"João Silva\",\n  \"email\": \"joao@exemplo.com\",\n  \"idade\": 27\n}"
+        }
+      }
+    },
+    {
+      "name": "Buscar usuário pelo nome",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/usuarios?nome=joao",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "usuarios"],
+          "query": [{ "key": "nome", "value": "joao" }]
+        }
+      }
+    },
+    {
+      "name": "Listar todos os usuários",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/usuarios"
+      }
+    },
+    {
+      "name": "Apagar usuário",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/usuarios/{{usuarioId}}"
+      }
+    }
+  ]
+}

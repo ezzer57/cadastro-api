@@ -1,0 +1,124 @@
+import { escapeHtml, destacar, iniciais, corAvatar, plural } from "./utils.js";
+
+const DURACAO_AVISO_MS = 5000;
+const DURACAO_TOAST_MS = 3000;
+const ATRASO_ENTRE_ITENS_MS = 30;
+const MAXIMO_DE_ITENS_ANIMADOS = 10;
+
+const $ = (seletor) => document.querySelector(seletor);
+
+const ICONE_REMOVER_PESSOA = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m17 8 5 5"/><path d="m22 8-5 5"/></svg>`;
+const ICONE_BOLO = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><path d="M2 21h20"/><path d="M7 8v3"/><path d="M12 8v3"/><path d="M17 8v3"/></svg>`;
+
+function itemUsuario(usuario, posicao, { termo, comBotaoRemover }) {
+  const atrasoAnimacao = Math.min(posicao, MAXIMO_DE_ITENS_ANIMADOS) * ATRASO_ENTRE_ITENS_MS;
+  const botaoRemover = comBotaoRemover
+    ? `<button type="button" class="btn-danger" data-id="${escapeHtml(usuario.id)}" data-nome="${escapeHtml(usuario.nome)}">${ICONE_REMOVER_PESSOA}<span>Remover</span></button>`
+    : "";
+
+  return `
+    <li style="animation-delay: ${atrasoAnimacao}ms">
+      <div class="user-info">
+        <span class="avatar" style="background: ${corAvatar(usuario.nome)}">${escapeHtml(iniciais(usuario.nome))}</span>
+        <div>
+          <div class="user-name">${destacar(usuario.nome, termo)}</div>
+          <div class="user-email">${escapeHtml(usuario.email)}</div>
+        </div>
+      </div>
+      <div class="user-actions">
+        <span class="badge">${ICONE_BOLO}${plural(usuario.idade, "ano", "anos")}</span>
+        ${botaoRemover}
+      </div>
+    </li>`;
+}
+
+export function renderizarLista(lista, usuarios, { vazio, termo = "", comBotaoRemover = false }) {
+  if (!usuarios.length) {
+    mostrarMensagemNaLista(lista, vazio);
+    return;
+  }
+  lista.innerHTML = usuarios.map((usuario, i) => itemUsuario(usuario, i, { termo, comBotaoRemover })).join("");
+}
+
+export function mostrarMensagemNaLista(lista, mensagem) {
+  lista.innerHTML = `<li class="empty">${escapeHtml(mensagem)}</li>`;
+}
+
+export function atualizarStatusServidor(online) {
+  const status = $("#status");
+  status.classList.toggle("ok", online);
+  status.classList.toggle("err", !online);
+  $("#status-text").textContent = online ? "Servidor online" : "Servidor offline";
+}
+
+export function mostrarSucessoFormulario(nome) {
+  const caixa = $("#form-msg");
+  caixa.className = "msg ok";
+  caixa.innerHTML = `Cadastro de <strong>${escapeHtml(nome)}</strong> salvo com sucesso.`;
+  caixa.hidden = false;
+}
+
+export function mostrarErrosFormulario(erros) {
+  const caixa = $("#form-msg");
+  caixa.className = "msg err";
+  caixa.innerHTML = `<ul>${erros.map((erro) => `<li>${escapeHtml(erro)}</li>`).join("")}</ul>`;
+  caixa.hidden = false;
+}
+
+export function esconderMensagemFormulario() {
+  $("#form-msg").hidden = true;
+}
+
+let timerToast;
+
+export function mostrarToast(texto) {
+  const toast = $("#toast");
+  toast.textContent = texto;
+  toast.hidden = false;
+  clearTimeout(timerToast);
+  timerToast = setTimeout(() => (toast.hidden = true), DURACAO_TOAST_MS);
+}
+
+let timerAviso;
+const aviso = $("#aviso");
+
+aviso.style.setProperty("--duracao-aviso", `${DURACAO_AVISO_MS}ms`);
+
+aviso.addEventListener("animationend", (evento) => {
+  if (evento.animationName !== "sair") return;
+  aviso.hidden = true;
+  aviso.classList.remove("saindo");
+});
+
+$("#aviso-fechar").addEventListener("click", () => fecharAviso());
+
+export function mostrarAviso({ titulo, texto }) {
+  $("#aviso-titulo").textContent = titulo;
+  $("#aviso-texto").textContent = texto;
+
+  aviso.classList.remove("saindo");
+  reiniciarAnimacao(aviso, () => (aviso.hidden = true), () => (aviso.hidden = false));
+
+  clearTimeout(timerAviso);
+  timerAviso = setTimeout(fecharAviso, DURACAO_AVISO_MS);
+}
+
+export function fecharAviso() {
+  clearTimeout(timerAviso);
+  if (aviso.hidden) return;
+  aviso.classList.add("saindo");
+}
+
+export function balancar(elemento) {
+  reiniciarAnimacao(elemento, () => elemento.classList.remove("shake"), () => elemento.classList.add("shake"));
+}
+
+function forcarNavegadorAAplicarEstilos(elemento) {
+  void elemento.offsetWidth;
+}
+
+function reiniciarAnimacao(elemento, desligar, ligar) {
+  desligar();
+  forcarNavegadorAAplicarEstilos(elemento);
+  ligar();
+}

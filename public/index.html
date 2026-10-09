@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cadastro.api</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="#cadastro" class="logo">
+        <span class="logo-icon">C</span>
+        <span class="logo-text">Cadastro<span class="grad-text">.api</span></span>
+      </a>
+
+      <nav class="tabs">
+        <a href="#cadastro" class="tab" data-tab="cadastro">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.4 2.6a1 1 0 0 1 3 3l-9 9a2 2 0 0 1-.9.5l-2.9.8a.5.5 0 0 1-.6-.6l.8-2.9a2 2 0 0 1 .5-.9z"/></svg>
+          Cadastrar
+        </a>
+        <a href="#buscar" class="tab" data-tab="buscar">
+          <svg class="icon-search" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="7" r="4"/><path d="M10.3 15H7a4 4 0 0 0-4 4v2"/><circle cx="17" cy="17" r="3"/><path d="m21 21-1.9-1.9"/></svg>
+          <svg class="icon-lock" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          Pesquisar
+        </a>
+      </nav>
+
+      <span id="status" class="status">
+        <span class="dot"></span><span id="status-text">Conectando…</span>
+      </span>
+    </div>
+  </header>
+
+  <div class="pop-wrap">
+    <div id="aviso" class="pop" role="alert" hidden>
+      <span class="pop-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      </span>
+      <div class="pop-body">
+        <strong id="aviso-titulo"></strong>
+        <p id="aviso-texto"></p>
+      </div>
+      <button id="aviso-fechar" class="pop-close" type="button" aria-label="Fechar aviso">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <span class="pop-bar"></span>
+    </div>
+  </div>
+
+  <main class="container">
+    <section id="view-cadastro" class="view">
+      <p class="eyebrow"><span class="eyebrow-dot"></span>Área de registro</p>
+      <h1>Cadastre <span class="grad-text">pessoas</span></h1>
+      <p class="subtitle">Preencha o formulário e acompanhe todos os registros salvos em tempo real.</p>
+
+      <div class="grid">
+        <div class="card">
+          <div class="card-head">
+            <span class="card-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+            </span>
+            <div>
+              <h2>Registros salvos</h2>
+              <code>GET /api/usuarios</code>
+            </div>
+            <button id="btn-atualizar" class="btn-ghost" type="button">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+              Recarregar
+            </button>
+          </div>
+          <ul id="lista-cadastro" class="user-list"></ul>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-icon alt">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6.5 16a3 3 0 0 1 5 0"/><path d="M15 10h3"/><path d="M15 14h2"/></svg>
+            </span>
+            <div>
+              <h2>Adicionar registro</h2>
+              <code>POST /api/usuarios</code>
+            </div>
+          </div>
+
+          <form id="form-cadastro" class="form" novalidate>
+            <label>
+              Nome completo
+              <span class="input-icone">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
+                <input name="nome" type="text" placeholder="Como a pessoa se chama?" required minlength="2" />
+              </span>
+            </label>
+            <label>
+              E-mail
+              <span class="input-icone">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg>
+                <input name="email" type="email" placeholder="nome@dominio.com" required />
+              </span>
+            </label>
+            <label class="short">
+              Idade
+              <span class="input-icone">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><path d="M2 21h20"/><path d="M7 8v3"/><path d="M12 8v3"/><path d="M17 8v3"/></svg>
+                <input name="idade" type="number" min="0" max="150" step="1" value="18" required />
+              </span>
+            </label>
+
+            <div id="form-msg" class="msg" role="status" hidden></div>
+
+            <button type="submit" class="btn-primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
+              Salvar cadastro
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-buscar" class="view" hidden>
+      <p class="eyebrow"><span class="eyebrow-dot"></span>Área de consulta</p>
+      <h1>Encontre <span class="grad-text">alguém</span></h1>
+      <p class="subtitle">Digite parte do nome para filtrar os registros. Quem não precisa mais estar na base pode ser removido.</p>
+
+      <div class="card">
+        <div class="search-box">
+          <label for="busca">Pesquisar por nome</label>
+          <span class="input-icone input-grande">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="7" r="4"/><path d="M10.3 15H7a4 4 0 0 0-4 4v2"/><circle cx="17" cy="17" r="3"/><path d="m21 21-1.9-1.9"/></svg>
+            <input id="busca" type="search" placeholder="Ex.: Ana, João, Silva…" autocomplete="off" />
+          </span>
+          <code class="endpoint">GET /api/usuarios?nome=<span id="busca-termo"></span></code>
+        </div>
+        <div class="list-head">
+          <strong id="busca-titulo">Todos os registros</strong>
+          <span id="busca-contagem" class="count"></span>
+        </div>
+        <ul id="lista-busca" class="user-list"></ul>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
