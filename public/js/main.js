@@ -1,4 +1,4 @@
-import { api, mensagensDeErro } from "./api.js";
+import { api, errosDaResposta } from "./api.js";
 import * as ui from "./componentes.js";
 import { plural } from "./utils.js";
 
@@ -66,6 +66,17 @@ function lerFormulario(formulario) {
   };
 }
 
+function exibirErrosDoFormulario(formulario, caixa, erro) {
+  const erros = errosDaResposta(erro);
+  ui.mostrarErros(caixa, erros);
+  ui.marcarCamposInvalidos(formulario, erros);
+}
+
+function limparFeedbackDoFormulario(formulario, caixa) {
+  ui.esconderMensagem(caixa);
+  ui.limparCamposInvalidos(formulario);
+}
+
 async function executarComBotaoTravado(formulario, acao) {
   const botao = formulario.querySelector("button[type=submit]");
   botao.disabled = true;
@@ -95,12 +106,13 @@ async function cadastrar(evento) {
   await executarComBotaoTravado(formulario, async () => {
     try {
       const usuario = await api.cadastrar(lerFormulario(formulario));
+      ui.limparCamposInvalidos(formulario);
       ui.mostrarSucessoCadastro(elementos.mensagemCadastro, usuario.nome);
       formulario.reset();
       formulario.nome.focus();
       carregarListaCadastro();
     } catch (erro) {
-      ui.mostrarErros(elementos.mensagemCadastro, mensagensDeErro(erro));
+      exibirErrosDoFormulario(formulario, elementos.mensagemCadastro, erro);
     }
   });
 }
@@ -141,7 +153,7 @@ async function abrirEdicao(id) {
     estado.idEmEdicao = usuario.id;
 
     $("#edicao-id").textContent = usuario.id;
-    ui.esconderMensagem(elementos.mensagemEdicao);
+    limparFeedbackDoFormulario(elementos.formularioEdicao, elementos.mensagemEdicao);
     ui.preencherFormulario(elementos.formularioEdicao, usuario);
     elementos.modalEdicao.showModal();
     elementos.formularioEdicao.nome.focus();
@@ -163,7 +175,7 @@ async function salvarEdicao(evento) {
       ui.mostrarToast(`Registro de ${usuario.nome} atualizado.`);
       pesquisar();
     } catch (erro) {
-      ui.mostrarErros(elementos.mensagemEdicao, mensagensDeErro(erro));
+      exibirErrosDoFormulario(formulario, elementos.mensagemEdicao, erro);
     }
   });
 }
@@ -221,7 +233,7 @@ function aoClicarNaListaDeBusca(evento) {
 }
 
 function exibirAba(aba) {
-  ui.esconderMensagem(elementos.mensagemCadastro);
+  limparFeedbackDoFormulario(elementos.formulario, elementos.mensagemCadastro);
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === aba));
   $("#view-cadastro").hidden = aba !== "cadastro";
   $("#view-buscar").hidden = aba !== "buscar";
@@ -246,8 +258,10 @@ async function navegar() {
   carregarListaCadastro();
 }
 
-ui.inserirCamposDeUsuario(elementos.formulario);
-ui.inserirCamposDeUsuario(elementos.formularioEdicao);
+for (const formulario of [elementos.formulario, elementos.formularioEdicao]) {
+  ui.inserirCamposDeUsuario(formulario);
+  ui.limparCampoAoDigitar(formulario);
+}
 ui.configurarModal(elementos.modalEdicao);
 
 window.addEventListener("conexao", (evento) => ui.atualizarStatusServidor(evento.detail.online));

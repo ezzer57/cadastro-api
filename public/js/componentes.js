@@ -72,8 +72,26 @@ export function mostrarSucessoCadastro(caixa, nome) {
 
 export function mostrarErros(caixa, erros) {
   caixa.className = "msg err";
-  caixa.innerHTML = `<ul>${erros.map((erro) => `<li>${escapeHtml(erro)}</li>`).join("")}</ul>`;
+  caixa.innerHTML = `<ul>${erros.map((erro) => `<li>${escapeHtml(erro.mensagem)}</li>`).join("")}</ul>`;
   caixa.hidden = false;
+}
+
+export function marcarCamposInvalidos(formulario, erros) {
+  limparCamposInvalidos(formulario);
+  const camposInvalidos = erros
+    .map((erro) => formulario.elements.namedItem(erro.campo ?? ""))
+    .filter((campo) => campo instanceof HTMLInputElement);
+
+  camposInvalidos.forEach((campo) => campo.setAttribute("aria-invalid", "true"));
+  camposInvalidos[0]?.focus();
+}
+
+export function limparCamposInvalidos(formulario) {
+  formulario.querySelectorAll('[aria-invalid="true"]').forEach((campo) => campo.removeAttribute("aria-invalid"));
+}
+
+export function limparCampoAoDigitar(formulario) {
+  formulario.addEventListener("input", (evento) => evento.target.removeAttribute("aria-invalid"));
 }
 
 export function esconderMensagem(caixa) {

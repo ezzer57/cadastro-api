@@ -38,7 +38,47 @@ Variáveis de ambiente opcionais: `PORT` (padrão `3000`) e `DB_FILE` (caminho d
 | DELETE | `/api/usuarios/:id`        | Remove um usuário pelo `id`                 |
 
 A busca ignora maiúsculas/minúsculas e acentos: `?nome=joao` encontra "João Silva".
-Todas as respostas são em JSON, inclusive os erros (`{ "erros": ["..."] }`).
+Todas as respostas são em JSON, inclusive os erros.
+
+## Validação
+
+### Regras dos campos
+
+| Campo   | Regras |
+|---------|--------|
+| `nome`  | Obrigatório, texto, até 100 caracteres, pelo menos 2 letras. Aceita letras (com acento), espaços, hífen, apóstrofo e ponto. Espaços extras são removidos (`"  Ana   Lima "` vira `"Ana Lima"`). |
+| `email` | Obrigatório, texto, até 254 caracteres (64 antes do `@`), formato `nome@dominio.com`, único. Salvo em minúsculas. |
+| `idade` | Obrigatória, **número inteiro** (não aceita `"25"` em texto nem `25.5`), de 0 a 150. |
+
+Qualquer outro campo enviado (como `id`, `criadoEm` ou `telefone`) é recusado.
+
+### Formato dos erros
+
+Cada erro informa o **campo** com problema e uma **mensagem** pronta para mostrar ao usuário:
+
+```json
+{
+  "erros": [
+    { "campo": "email", "mensagem": "Informe um e-mail válido, como nome@dominio.com." },
+    { "campo": "idade", "mensagem": "A idade deve estar entre 0 e 150." }
+  ]
+}
+```
+
+Erros que não são de um campo específico (como 404) vêm só com a `mensagem`.
+No site, os campos com erro ficam destacados em vermelho e o cursor vai para o primeiro deles.
+
+### Camadas de validação
+
+| Camada | Onde | O que garante | Resposta |
+|--------|------|---------------|----------|
+| Borda HTTP | `src/app.js` | JSON bem formado e de tamanho aceitável | `400` / `413` |
+| Dados | `src/validacao.js` | campos obrigatórios, tipos, tamanhos, formatos, campos desconhecidos | `400` |
+| Regras de negócio | `src/servico.js` | e-mail único, usuário existente | `409` / `404` |
+| Banco de dados | `src/migracoes.js` | `NOT NULL`, `UNIQUE` e `CHECK` (última linha de defesa) | recusa a gravação |
+
+Toda gravação passa pelo `servico.js`, então as regras valem para qualquer forma de entrada, não só para as rotas HTTP.
+Mesmo que algum código grave direto no banco sem validar, o SQLite recusa dados fora das regras.
 
 ### Cadastrar: `POST /api/usuarios`
 
@@ -52,12 +92,11 @@ Body (JSON):
 }
 ```
 
-Regras: `nome` com pelo menos 2 caracteres, `email` válido e único, `idade` **número inteiro** entre 0 e 150.
-
 Respostas:
 - `201 Created`: usuário criado (retorna o usuário com `id` e `criadoEm`)
-- `400 Bad Request`: dados inválidos ou JSON malformado, ex.: `{ "erros": ["email inválido"] }`
+- `400 Bad Request`: dados inválidos ou JSON malformado (veja [Validação](#validação))
 - `409 Conflict`: e-mail já cadastrado
+- `413 Payload Too Large`: corpo da requisição grande demais
 
 ### Buscar: `GET /api/usuarios?nome=joao`
 
@@ -106,7 +145,7 @@ No site, o botão **Editar** fica na aba Pesquisar, ao lado de "Remover", e abre
 Use o `id` retornado no cadastro (ou na busca).
 
 Respostas:
-- `200 OK`: `{ "mensagem": "usuário apagado com sucesso", "usuario": { ... } }`
+- `200 OK`: `{ "mensagem": "Usuário apagado com sucesso.", "usuario": { ... } }`
 - `404 Not Found`: nenhum usuário com esse `id`
 
 ## Postman
@@ -121,13 +160,19 @@ Ao rodar "Cadastrar usuário", o `id` criado é guardado automaticamente e usado
 ```
 server.js                → ponto de entrada: lê a configuração e sobe o servidor
 src/
-  app.js                 → monta o Express (JSON, arquivos do site, rotas, tratamento de erros)
-  rotas.js               → camada HTTP das rotas /api/usuarios
-  usuario.js             → regras do usuário: validação e montagem do registro
+  app.js                 → monta o Express e transforma erros em respostas HTTP
+  rotas.js               → camada HTTP das rotas /api/usuarios (só repassa para o serviço)
+  servico.js             → regras de negócio: valida, confere e-mail único e existência
+  validacao.js           → regras de cada campo e mensagens de erro
+  usuario.js             → padronização dos dados e montagem do registro
+  erros.js               → erros do domínio (validação, não encontrado, e-mail repetido)
   repositorio.js         → leitura e gravação no banco SQLite
-  texto.js               → normalização de texto (acentos/maiúsculas)
-test/
-  usuarios.test.js       → testes automáticos da API (node:test, sem dependências extras)
+  migracoes.js           → estrutura do banco e restrições, versionadas
+  texto.js               → normalização de texto (acentos, maiúsculas, espaços)
+test/                    → testes automáticos (node:test, sem dependências extras)
+  api.test.js            → requisições HTTP de ponta a ponta
+  validacao.test.js      → casos válidos e inválidos de cada campo
+  repositorio.test.js    → persistência, restrições do banco e migração
 public/
   index.html, style.css  → página e visual
   js/main.js             → ponto de entrada do site: eventos, abas, edição e bloqueio da pesquisa
@@ -136,6 +181,9 @@ public/
   js/utils.js            → funções puras de texto (escape de HTML, iniciais, destaque)
 data/cadastro.db         → banco SQLite (criado automaticamente, fica fora do Git)
 ```
+
+O banco guarda a própria versão (`PRAGMA user_version`). Ao iniciar, o servidor aplica as migrações
+que faltam, então um banco criado numa versão anterior do projeto é atualizado sem perder dados.
 
 Cada camada tem uma responsabilidade só. Foi assim que o armazenamento trocou de um arquivo JSON
 para o SQLite: só `src/repositorio.js` mudou, e os testes da API passaram sem nenhuma alteração.

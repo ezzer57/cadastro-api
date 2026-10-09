@@ -252,6 +252,7 @@ h1 {
 }
 .input-icone input { width: 100%; padding-left: 42px; }
 .input-icone:focus-within svg { color: var(--cyan); }
+.input-icone:has(input[aria-invalid="true"]) svg { color: var(--danger); }
 input {
   font: inherit;
   font-size: 14px;
@@ -266,6 +267,7 @@ input {
 }
 input::placeholder { color: var(--text-faint); }
 input:focus { border-color: var(--violet); box-shadow: 0 0 0 4px rgba(124, 92, 255, 0.2); }
+input[aria-invalid="true"] { border-color: var(--danger); box-shadow: 0 0 0 4px var(--danger-soft); }
 input[type="search"]::-webkit-search-cancel-button { filter: invert(0.7); }
 
 .btn-primary, .btn-ghost {

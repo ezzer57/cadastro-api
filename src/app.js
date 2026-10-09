@@ -1,17 +1,37 @@
 const express = require("express");
 const path = require("path");
 const { criarRotasUsuarios } = require("./rotas");
+const { criarServicoDeUsuarios } = require("./servico");
+const { ErroDeValidacao, UsuarioNaoEncontrado, EmailJaCadastrado } = require("./erros");
+
+const STATUS_HTTP_POR_ERRO = new Map([
+  [ErroDeValidacao, 400],
+  [UsuarioNaoEncontrado, 404],
+  [EmailJaCadastrado, 409],
+]);
+
+const MENSAGENS_DO_LEITOR_DE_JSON = {
+  "entity.parse.failed": "O corpo da requisição não é um JSON válido.",
+  "entity.too.large": "O corpo da requisição é grande demais.",
+};
+
+function responderComMensagem(res, status, mensagem) {
+  res.status(status).json({ erros: [{ mensagem }] });
+}
 
 function responderRotaInexistenteEmJson(req, res) {
-  res.status(404).json({ erros: ["rota não encontrada"] });
+  responderComMensagem(res, 404, "Rota não encontrada.");
 }
 
 function responderErrosEmJson(err, req, res, next) {
-  if (err.type === "entity.parse.failed") {
-    return res.status(400).json({ erros: ["o corpo da requisição não é um JSON válido"] });
-  }
+  const statusDoErroDeDominio = STATUS_HTTP_POR_ERRO.get(err.constructor);
+  if (statusDoErroDeDominio) return res.status(statusDoErroDeDominio).json({ erros: err.erros });
+
+  const mensagemDoLeitorDeJson = MENSAGENS_DO_LEITOR_DE_JSON[err.type];
+  if (mensagemDoLeitorDeJson) return responderComMensagem(res, err.status, mensagemDoLeitorDeJson);
+
   console.error(err);
-  res.status(500).json({ erros: ["erro interno no servidor"] });
+  responderComMensagem(res, 500, "Erro interno no servidor.");
 }
 
 function criarApp({ repositorio }) {
@@ -19,7 +39,7 @@ function criarApp({ repositorio }) {
 
   app.use(express.json());
   app.use(express.static(path.join(__dirname, "..", "public")));
-  app.use("/api/usuarios", criarRotasUsuarios(repositorio));
+  app.use("/api/usuarios", criarRotasUsuarios(criarServicoDeUsuarios(repositorio)));
   app.use("/api", responderRotaInexistenteEmJson);
   app.use(responderErrosEmJson);
 

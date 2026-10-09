@@ -1,28 +1,18 @@
 const crypto = require("crypto");
+const { limparEspacos } = require("./texto");
 
-const LIMITES = { nomeMin: 2, idadeMin: 0, idadeMax: 150 };
-const FORMATO_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function padronizarNome(nome) {
+  return limparEspacos(nome).normalize("NFC");
+}
 
-function validarUsuario({ nome, email, idade } = {}) {
-  const erros = [];
-
-  if (typeof nome !== "string" || nome.trim().length < LIMITES.nomeMin) {
-    erros.push(`nome é obrigatório (mínimo ${LIMITES.nomeMin} caracteres)`);
-  }
-  if (typeof email !== "string" || !FORMATO_EMAIL.test(email.trim())) {
-    erros.push("email inválido");
-  }
-  if (!Number.isInteger(idade) || idade < LIMITES.idadeMin || idade > LIMITES.idadeMax) {
-    erros.push(`idade deve ser um número inteiro entre ${LIMITES.idadeMin} e ${LIMITES.idadeMax}`);
-  }
-
-  return erros;
+function padronizarEmail(email) {
+  return email.trim().toLowerCase();
 }
 
 function padronizarDados({ nome, email, idade }) {
   return {
-    nome: nome.trim().normalize("NFC"),
-    email: email.trim().toLowerCase(),
+    nome: padronizarNome(nome),
+    email: padronizarEmail(email),
     idade,
   };
 }
@@ -35,4 +25,4 @@ function criarUsuario(dados) {
   };
 }
 
-module.exports = { LIMITES, validarUsuario, padronizarDados, criarUsuario };
+module.exports = { padronizarNome, padronizarEmail, padronizarDados, criarUsuario };

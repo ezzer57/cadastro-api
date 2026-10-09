@@ -2,7 +2,7 @@ const URL_USUARIOS = "/api/usuarios";
 
 export class ErroApi extends Error {
   constructor(status, erros) {
-    super(erros.join("; "));
+    super(erros.map((erro) => erro.mensagem).join(" "));
     this.status = status;
     this.erros = erros;
   }
@@ -35,7 +35,7 @@ async function requisicao(url, opcoes = {}) {
   notificarConexao(true);
 
   const corpo = await resposta.json().catch(() => ({}));
-  if (!resposta.ok) throw new ErroApi(resposta.status, corpo.erros ?? ["erro inesperado"]);
+  if (!resposta.ok) throw new ErroApi(resposta.status, corpo.erros ?? [{ mensagem: "Erro inesperado." }]);
   return corpo;
 }
 
@@ -53,6 +53,6 @@ export const api = {
   remover: (id) => requisicao(urlDoUsuario(id), { method: "DELETE" }),
 };
 
-export function mensagensDeErro(erro) {
-  return erro instanceof ErroApi ? erro.erros : ["Não foi possível conectar ao servidor."];
+export function errosDaResposta(erro) {
+  return erro instanceof ErroApi ? erro.erros : [{ mensagem: "Não foi possível conectar ao servidor." }];
 }

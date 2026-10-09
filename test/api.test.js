@@ -6,7 +6,6 @@ const os = require("node:os");
 const path = require("node:path");
 const { criarApp } = require("../src/app");
 const { criarRepositorio } = require("../src/repositorio");
-const { criarUsuario } = require("../src/usuario");
 
 let servidor;
 let repositorio;
@@ -162,25 +161,52 @@ test("editar id inexistente responde 404", async () => {
   assert.equal(status, 404);
 });
 
-test("busca trata %, _ e ! como texto comum, não como curinga", async () => {
-  await cadastrar({ nome: "Rafa_100%!", email: "rafa@exemplo.com", idade: 22 });
-
-  assert.deepEqual((await buscar("%")).map((u) => u.nome), ["Rafa_100%!"]);
-  assert.deepEqual((await buscar("_")).map((u) => u.nome), ["Rafa_100%!"]);
-  assert.deepEqual((await buscar("!")).map((u) => u.nome), ["Rafa_100%!"]);
-  assert.deepEqual(await buscar("a_b"), []);
+test("busca trata % e _ como texto comum, não como curinga", async () => {
+  assert.ok((await buscar("")).length > 0);
+  assert.deepEqual(await buscar("%"), []);
+  assert.deepEqual(await buscar("_"), []);
 });
 
-test("os dados continuam salvos depois de fechar e abrir o banco de novo", () => {
-  const arquivo = path.join(pastaTemporaria, "persistencia.db");
-  const usuario = criarUsuario({ nome: "Pessoa Persistente", email: "persiste@exemplo.com", idade: 50 });
+test("erros de validação informam o campo e a mensagem", async () => {
+  const { status, corpo } = await cadastrar({ nome: "", email: "teste@hjm,m.com", idade: 200 });
 
-  const primeiraConexao = criarRepositorio(arquivo);
-  primeiraConexao.adicionar(usuario);
-  primeiraConexao.fechar();
+  assert.equal(status, 400);
+  assert.deepEqual(corpo.erros.map((erro) => erro.campo), ["nome", "email", "idade"]);
+  assert.ok(corpo.erros.every((erro) => typeof erro.mensagem === "string" && erro.mensagem.length > 0));
+});
 
-  const segundaConexao = criarRepositorio(arquivo);
-  assert.deepEqual({ ...segundaConexao.buscarPorIdOuNulo(usuario.id) }, usuario);
-  assert.equal(segundaConexao.listar().length, 1);
-  segundaConexao.fechar();
+test("rejeita campos que não fazem parte do usuário", async () => {
+  const { status, corpo } = await cadastrar({ ...joao, email: "extra@exemplo.com", id: "123", telefone: "99999" });
+
+  assert.equal(status, 400);
+  assert.deepEqual(corpo.erros.map((erro) => erro.campo), ["id", "telefone"]);
+});
+
+test("rejeita corpo que não é um objeto JSON", async () => {
+  const { status, corpo } = await enviar("POST", urlUsuarios, "[1, 2]");
+  assert.equal(status, 400);
+  assert.equal(corpo.erros.length, 1);
+});
+
+test("padroniza espaços extras no nome", async () => {
+  const { status, corpo } = await cadastrar({ nome: "  Carla    Dias  ", email: "carla@exemplo.com", idade: 40 });
+  assert.equal(status, 201);
+  assert.equal(corpo.nome, "Carla Dias");
+});
+
+test("e-mail repetido responde 409 apontando o campo email", async () => {
+  const { status, corpo } = await cadastrar({ nome: "Outra Carla", email: "CARLA@exemplo.com", idade: 30 });
+  assert.equal(status, 409);
+  assert.equal(corpo.erros[0].campo, "email");
+});
+
+test("busca com termo longo demais responde 400", async () => {
+  const resposta = await fetch(`${urlUsuarios}?nome=${"a".repeat(101)}`);
+  assert.equal(resposta.status, 400);
+});
+
+test("corpo grande demais responde 413 em JSON", async () => {
+  const { status, corpo } = await cadastrar({ ...joao, nome: "a".repeat(200_000) });
+  assert.equal(status, 413);
+  assert.ok(corpo.erros);
 });

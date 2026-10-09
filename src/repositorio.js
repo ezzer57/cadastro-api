@@ -2,19 +2,12 @@ const fs = require("fs");
 const path = require("path");
 const { DatabaseSync } = require("node:sqlite");
 const { normalizar } = require("./texto");
+const { aplicarMigracoes } = require("./migracoes");
+const { EmailJaCadastrado } = require("./erros");
 
 const BANCO_EM_MEMORIA = ":memory:";
 const COLUNAS = "id, nome, email, idade, criado_em AS criadoEm";
-
-const ESQUEMA = `
-  CREATE TABLE IF NOT EXISTS usuarios (
-    id               TEXT PRIMARY KEY,
-    nome             TEXT NOT NULL,
-    nome_normalizado TEXT NOT NULL,
-    email            TEXT NOT NULL UNIQUE,
-    idade            INTEGER NOT NULL,
-    criado_em        TEXT NOT NULL
-  )`;
+const CODIGO_SQLITE_VALOR_REPETIDO = 2067;
 
 function abrirBanco(caminhoArquivo) {
   if (caminhoArquivo !== BANCO_EM_MEMORIA) {
@@ -23,13 +16,22 @@ function abrirBanco(caminhoArquivo) {
 
   const banco = new DatabaseSync(caminhoArquivo);
   banco.exec("PRAGMA journal_mode = WAL");
-  banco.exec(ESQUEMA);
+  aplicarMigracoes(banco);
   return banco;
 }
 
 function padraoContendoTexto(texto) {
   const textoSemCuringas = texto.replace(/[!%_]/g, "!$&");
   return `%${textoSemCuringas}%`;
+}
+
+function traduzirEmailRepetido(gravar) {
+  try {
+    return gravar();
+  } catch (erro) {
+    if (erro.errcode === CODIGO_SQLITE_VALOR_REPETIDO) throw new EmailJaCadastrado();
+    throw erro;
+  }
 }
 
 function criarRepositorio(caminhoArquivo) {
@@ -63,10 +65,11 @@ function criarRepositorio(caminhoArquivo) {
 
     emailEmUso: (email, { excetoId = null } = {}) => consultas.emailEmUso.get({ email, excetoId }) !== undefined,
 
-    adicionar: (usuario) => consultas.inserir.get({ ...usuario, nomeNormalizado: normalizar(usuario.nome) }),
+    adicionar: (usuario) => traduzirEmailRepetido(() =>
+      consultas.inserir.get({ ...usuario, nomeNormalizado: normalizar(usuario.nome) })),
 
-    atualizarPorIdOuNulo: (id, dados) =>
-      consultas.atualizar.get({ id, ...dados, nomeNormalizado: normalizar(dados.nome) }) ?? null,
+    atualizarPorIdOuNulo: (id, dados) => traduzirEmailRepetido(() =>
+      consultas.atualizar.get({ id, ...dados, nomeNormalizado: normalizar(dados.nome) }) ?? null),
 
     removerPorIdOuNulo: (id) => consultas.remover.get(id) ?? null,
 
