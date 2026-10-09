@@ -6,7 +6,7 @@ const { aplicarMigracoes } = require("./migracoes");
 const { EmailJaCadastrado } = require("./erros");
 
 const BANCO_EM_MEMORIA = ":memory:";
-const COLUNAS = "id, nome, email, idade, criado_em AS criadoEm, atualizado_em AS atualizadoEm";
+const COLUNAS = "id, nome, email, idade, papel, criado_em AS criadoEm, atualizado_em AS atualizadoEm";
 const CODIGO_SQLITE_VALOR_REPETIDO = 2067;
 const SEM_LIMITE = -1;
 const FILTRO_POR_NOME = "WHERE nome_normalizado LIKE :padrao ESCAPE '!'";
@@ -47,14 +47,16 @@ function criarRepositorio(caminhoArquivo) {
     contar: banco.prepare(`SELECT count(*) AS total FROM usuarios ${FILTRO_POR_NOME}`),
     buscarPorId: banco.prepare(`SELECT ${COLUNAS} FROM usuarios WHERE id = ?`),
     emailEmUso: banco.prepare("SELECT 1 FROM usuarios WHERE email = :email AND id IS NOT :excetoId"),
+    buscarCredenciais: banco.prepare("SELECT id, senha_hash AS senhaHash FROM usuarios WHERE email = ?"),
+    contarAdministradores: banco.prepare("SELECT count(*) AS total FROM usuarios WHERE papel = 'admin'"),
     inserir: banco.prepare(`
-      INSERT INTO usuarios (id, nome, nome_normalizado, email, idade, criado_em, atualizado_em)
-      VALUES (:id, :nome, :nomeNormalizado, :email, :idade, :criadoEm, :atualizadoEm)
+      INSERT INTO usuarios (id, nome, nome_normalizado, email, idade, papel, senha_hash, criado_em, atualizado_em)
+      VALUES (:id, :nome, :nomeNormalizado, :email, :idade, :papel, :senhaHash, :criadoEm, :atualizadoEm)
       RETURNING ${COLUNAS}`),
     atualizar: banco.prepare(`
       UPDATE usuarios
       SET nome = :nome, nome_normalizado = :nomeNormalizado, email = :email, idade = :idade,
-          atualizado_em = :atualizadoEm
+          senha_hash = coalesce(:senhaHash, senha_hash), atualizado_em = :atualizadoEm
       WHERE id = :id
       RETURNING ${COLUNAS}`),
     remover: banco.prepare(`DELETE FROM usuarios WHERE id = ? RETURNING ${COLUNAS}`),
@@ -70,11 +72,19 @@ function criarRepositorio(caminhoArquivo) {
 
     emailEmUso: (email, { excetoId = null } = {}) => consultas.emailEmUso.get({ email, excetoId }) !== undefined,
 
-    adicionar: ({ id, nome, email, idade, criadoEm, atualizadoEm }) => traduzirEmailRepetido(() =>
-      consultas.inserir.get({ id, nome, email, idade, criadoEm, atualizadoEm, nomeNormalizado: normalizar(nome) })),
+    buscarCredenciaisPorEmailOuNulo: (email) => consultas.buscarCredenciais.get(email) ?? null,
 
-    atualizarPorIdOuNulo: (id, { nome, email, idade, atualizadoEm }) => traduzirEmailRepetido(() =>
-      consultas.atualizar.get({ id, nome, email, idade, atualizadoEm, nomeNormalizado: normalizar(nome) }) ?? null),
+    contarAdministradores: () => consultas.contarAdministradores.get().total,
+
+    adicionar: ({ id, nome, email, idade, papel, criadoEm, atualizadoEm }, senhaHash = null) =>
+      traduzirEmailRepetido(() => consultas.inserir.get({
+        id, nome, email, idade, papel, senhaHash, criadoEm, atualizadoEm, nomeNormalizado: normalizar(nome),
+      })),
+
+    atualizarPorIdOuNulo: (id, { nome, email, idade, atualizadoEm }, senhaHash = null) =>
+      traduzirEmailRepetido(() => consultas.atualizar.get({
+        id, nome, email, idade, senhaHash, atualizadoEm, nomeNormalizado: normalizar(nome),
+      }) ?? null),
 
     removerPorIdOuNulo: (id) => consultas.remover.get(id) ?? null,
 

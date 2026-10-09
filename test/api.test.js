@@ -1,49 +1,29 @@
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
-const { once } = require("node:events");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { criarApp } = require("../src/app");
-const { criarRepositorio } = require("../src/repositorio");
+const { iniciarServidorDeTeste } = require("./servidor-de-teste");
 
 let servidor;
-let repositorio;
-let pastaTemporaria;
-let urlUsuarios;
+let tokenAdmin;
 
 before(async () => {
-  pastaTemporaria = fs.mkdtempSync(path.join(os.tmpdir(), "cadastro-api-"));
-  repositorio = criarRepositorio(path.join(pastaTemporaria, "banco-de-teste.db"));
-
-  servidor = criarApp({ repositorio }).listen(0);
-  await once(servidor, "listening");
-  urlUsuarios = `http://localhost:${servidor.address().port}/api/usuarios`;
+  servidor = await iniciarServidorDeTeste();
+  await servidor.cadastrar({ nome: "Admin Teste", email: "admin@exemplo.com", idade: 40 });
+  tokenAdmin = await servidor.entrar("admin@exemplo.com");
 });
 
-after(() => {
-  servidor.closeAllConnections();
-  servidor.close();
-  repositorio.fechar();
-  fs.rmSync(pastaTemporaria, { recursive: true, force: true });
-});
+after(() => servidor.encerrar());
 
-async function enviar(metodo, url, corpo) {
-  const resposta = await fetch(url, {
-    method: metodo,
-    headers: { "Content-Type": "application/json" },
-    body: typeof corpo === "string" ? corpo : JSON.stringify(corpo),
-  });
-  return { status: resposta.status, corpo: await resposta.json() };
-}
-
-const cadastrar = (dados) => enviar("POST", urlUsuarios, dados);
-const listar = async (consulta = "") => (await fetch(`${urlUsuarios}${consulta}`)).json();
+const comoAdmin = (metodo, caminho, corpo) => servidor.enviar(metodo, caminho, { corpo, token: tokenAdmin });
+const cadastrar = (dados) => servidor.cadastrar(dados);
+const listar = async (consulta = "") => (await comoAdmin("GET", `/api/usuarios${consulta}`)).corpo;
 const buscar = async (nome) => (await listar(`?nome=${encodeURIComponent(nome)}&limite=100`)).usuarios;
 const joao = { nome: "João Silva", email: "Joao@Exemplo.com", idade: 27 };
 
-test("começa sem nenhum usuário", async () => {
-  assert.deepEqual(await listar(), { usuarios: [], paginacao: { pagina: 1, limite: 20, total: 0, totalPaginas: 0 } });
+test("a lista começa só com o administrador criado no início", async () => {
+  const { usuarios, paginacao } = await listar();
+  assert.deepEqual(paginacao, { pagina: 1, limite: 20, total: 1, totalPaginas: 1 });
+  assert.equal(usuarios[0].email, "admin@exemplo.com");
+  assert.equal(usuarios[0].papel, "admin");
 });
 
 test("cadastra um usuário válido e padroniza o e-mail", async () => {
@@ -53,6 +33,7 @@ test("cadastra um usuário válido e padroniza o e-mail", async () => {
   assert.equal(corpo.nome, "João Silva");
   assert.equal(corpo.email, "joao@exemplo.com");
   assert.equal(corpo.idade, 27);
+  assert.equal(corpo.papel, "comum");
   assert.ok(corpo.id);
 });
 
@@ -84,23 +65,23 @@ test("busca pelo nome ignorando maiúsculas e acentos", async () => {
 test("remove um usuário e responde 404 se tentar de novo", async () => {
   const [usuario] = await buscar("joao");
 
-  const primeira = await enviar("DELETE", `${urlUsuarios}/${usuario.id}`);
+  const primeira = await comoAdmin("DELETE", `/api/usuarios/${usuario.id}`);
   assert.equal(primeira.status, 200);
   assert.equal(primeira.corpo.usuario.id, usuario.id);
 
-  const segunda = await enviar("DELETE", `${urlUsuarios}/${usuario.id}`);
+  const segunda = await comoAdmin("DELETE", `/api/usuarios/${usuario.id}`);
   assert.equal(segunda.status, 404);
   assert.deepEqual(await buscar("joao"), []);
 });
 
 test("JSON malformado responde 400 em JSON", async () => {
-  const { status, corpo } = await enviar("POST", urlUsuarios, "{ nome: ");
+  const { status, corpo } = await servidor.enviar("POST", "/api/usuarios", { corpo: "{ nome: " });
   assert.equal(status, 400);
   assert.ok(corpo.erros);
 });
 
 test("rota inexistente da API responde 404 em JSON", async () => {
-  const { status, corpo } = await enviar("GET", urlUsuarios.replace("usuarios", "nao-existe"));
+  const { status, corpo } = await comoAdmin("GET", "/api/nao-existe");
   assert.equal(status, 404);
   assert.ok(corpo.erros);
 });
@@ -108,18 +89,18 @@ test("rota inexistente da API responde 404 em JSON", async () => {
 test("busca um usuário pelo id e responde 404 para id inexistente", async () => {
   const { corpo: criado } = await cadastrar({ nome: "Ana Lima", email: "ana@exemplo.com", idade: 30 });
 
-  const encontrado = await enviar("GET", `${urlUsuarios}/${criado.id}`);
+  const encontrado = await comoAdmin("GET", `/api/usuarios/${criado.id}`);
   assert.equal(encontrado.status, 200);
   assert.deepEqual(encontrado.corpo, criado);
 
-  const inexistente = await enviar("GET", `${urlUsuarios}/id-que-nao-existe`);
+  const inexistente = await comoAdmin("GET", "/api/usuarios/id-que-nao-existe");
   assert.equal(inexistente.status, 404);
 });
 
 test("edita um usuário mantendo id e data de criação", async () => {
   const [ana] = await buscar("ana lima");
 
-  const { status, corpo } = await enviar("PUT", `${urlUsuarios}/${ana.id}`, {
+  const { status, corpo } = await comoAdmin("PUT", `/api/usuarios/${ana.id}`, {
     nome: "Ana Lima Souza",
     email: "Ana.Souza@Exemplo.com",
     idade: 31,
@@ -136,7 +117,7 @@ test("edita um usuário mantendo id e data de criação", async () => {
 
 test("permite editar mantendo o próprio e-mail", async () => {
   const [ana] = await buscar("ana lima");
-  const { status } = await enviar("PUT", `${urlUsuarios}/${ana.id}`, { nome: "Ana L. Souza", email: ana.email, idade: 32 });
+  const { status } = await comoAdmin("PUT", `/api/usuarios/${ana.id}`, { nome: "Ana L. Souza", email: ana.email, idade: 32 });
   assert.equal(status, 200);
 });
 
@@ -144,21 +125,21 @@ test("não permite editar para o e-mail de outro usuário", async () => {
   const { corpo: bia } = await cadastrar({ nome: "Bia Rocha", email: "bia@exemplo.com", idade: 25 });
   const [ana] = await buscar("ana");
 
-  const { status } = await enviar("PUT", `${urlUsuarios}/${bia.id}`, { nome: "Bia Rocha", email: ana.email, idade: 25 });
+  const { status } = await comoAdmin("PUT", `/api/usuarios/${bia.id}`, { nome: "Bia Rocha", email: ana.email, idade: 25 });
   assert.equal(status, 409);
 });
 
 test("edição com dados inválidos responde 400 e não altera o usuário", async () => {
   const [bia] = await buscar("bia");
 
-  const { status, corpo } = await enviar("PUT", `${urlUsuarios}/${bia.id}`, { nome: "", email: "x", idade: null });
+  const { status, corpo } = await comoAdmin("PUT", `/api/usuarios/${bia.id}`, { nome: "", email: "x", idade: null });
   assert.equal(status, 400);
   assert.equal(corpo.erros.length, 3);
-  assert.deepEqual((await enviar("GET", `${urlUsuarios}/${bia.id}`)).corpo, bia);
+  assert.deepEqual((await comoAdmin("GET", `/api/usuarios/${bia.id}`)).corpo, bia);
 });
 
 test("editar id inexistente responde 404", async () => {
-  const { status } = await enviar("PUT", `${urlUsuarios}/id-que-nao-existe`, { nome: "Fulano", email: "fulano@exemplo.com", idade: 40 });
+  const { status } = await comoAdmin("PUT", "/api/usuarios/id-que-nao-existe", { nome: "Fulano", email: "fulano@exemplo.com", idade: 40 });
   assert.equal(status, 404);
 });
 
@@ -184,7 +165,7 @@ test("rejeita campos que não fazem parte do usuário", async () => {
 });
 
 test("rejeita corpo que não é um objeto JSON", async () => {
-  const { status, corpo } = await enviar("POST", urlUsuarios, "[1, 2]");
+  const { status, corpo } = await servidor.enviar("POST", "/api/usuarios", { corpo: "[1, 2]" });
   assert.equal(status, 400);
   assert.equal(corpo.erros.length, 1);
 });
@@ -202,8 +183,8 @@ test("e-mail repetido responde 409 apontando o campo email", async () => {
 });
 
 test("busca com termo longo demais responde 400", async () => {
-  const resposta = await fetch(`${urlUsuarios}?nome=${"a".repeat(101)}`);
-  assert.equal(resposta.status, 400);
+  const { status } = await comoAdmin("GET", `/api/usuarios?nome=${"a".repeat(101)}`);
+  assert.equal(status, 400);
 });
 
 test("corpo grande demais responde 413 em JSON", async () => {
@@ -222,7 +203,7 @@ test("editar muda atualizadoEm e mantém criadoEm", async (t) => {
   const { corpo: criado } = await cadastrar({ nome: "Eva Prado", email: "eva@exemplo.com", idade: 41 });
 
   t.mock.timers.tick(60_000);
-  const { corpo: editado } = await enviar("PUT", `${urlUsuarios}/${criado.id}`, { nome: "Eva Prado", email: "eva@exemplo.com", idade: 42 });
+  const { corpo: editado } = await comoAdmin("PUT", `/api/usuarios/${criado.id}`, { nome: "Eva Prado", email: "eva@exemplo.com", idade: 42 });
 
   assert.equal(editado.criadoEm, "2026-05-01T10:00:00.000Z");
   assert.equal(editado.atualizadoEm, "2026-05-01T10:01:00.000Z");
@@ -233,7 +214,7 @@ test("salvar sem nenhuma mudança não altera atualizadoEm", async (t) => {
   const { corpo: criado } = await cadastrar({ nome: "Fábio Reis", email: "fabio@exemplo.com", idade: 50 });
 
   t.mock.timers.tick(60_000);
-  const { status, corpo } = await enviar("PUT", `${urlUsuarios}/${criado.id}`, {
+  const { status, corpo } = await comoAdmin("PUT", `/api/usuarios/${criado.id}`, {
     nome: "  Fábio   Reis ",
     email: "FABIO@exemplo.com",
     idade: 50,
@@ -291,9 +272,8 @@ test("parâmetros de paginação inválidos respondem 400 apontando o campo", as
     "?limite=dez": "limite",
   };
   for (const [consulta, campo] of Object.entries(casos)) {
-    const resposta = await fetch(`${urlUsuarios}${consulta}`);
-    const corpo = await resposta.json();
-    assert.equal(resposta.status, 400, consulta);
+    const { status, corpo } = await comoAdmin("GET", `/api/usuarios${consulta}`);
+    assert.equal(status, 400, consulta);
     assert.deepEqual(corpo.erros.map((erro) => erro.campo), [campo], consulta);
   }
 });

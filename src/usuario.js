@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const { limparEspacos } = require("./texto");
 
+const PAPEIS = { admin: "admin", comum: "comum" };
 const CAMPOS_EDITAVEIS = ["nome", "email", "idade"];
 
 function agoraEmIso() {
@@ -23,22 +24,23 @@ function padronizarDados({ nome, email, idade }) {
   };
 }
 
-function criarUsuario(dados) {
+function criarUsuario(dados, { papel = PAPEIS.comum } = {}) {
   const agora = agoraEmIso();
   return {
     id: crypto.randomUUID(),
     ...padronizarDados(dados),
+    papel,
     criadoEm: agora,
     atualizadoEm: agora,
   };
 }
 
-function aplicarEdicao(usuario, dados) {
+function aplicarEdicao(usuario, dados, { senhaMudou = false } = {}) {
   const novosDados = padronizarDados(dados);
-  const houveMudanca = CAMPOS_EDITAVEIS.some((campo) => usuario[campo] !== novosDados[campo]);
-  if (!houveMudanca) return usuario;
+  const algumCampoMudou = CAMPOS_EDITAVEIS.some((campo) => usuario[campo] !== novosDados[campo]);
+  if (!algumCampoMudou && !senhaMudou) return usuario;
 
   return { ...usuario, ...novosDados, atualizadoEm: agoraEmIso() };
 }
 
-module.exports = { padronizarNome, padronizarEmail, criarUsuario, aplicarEdicao };
+module.exports = { PAPEIS, padronizarNome, padronizarEmail, criarUsuario, aplicarEdicao };

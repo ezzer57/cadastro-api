@@ -3,13 +3,19 @@
     "name": "Cadastro.api",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:3000" },
-    { "key": "usuarioId", "value": "" }
+    { "key": "token", "value": "" },
+    { "key": "usuarioId", "value": "" },
+    { "key": "outroId", "value": "" }
   ],
   "item": [
     {
-      "name": "Cadastrar usuário",
+      "name": "1. Criar conta",
       "event": [
         {
           "listen": "test",
@@ -24,29 +30,77 @@
         }
       ],
       "request": {
+        "auth": { "type": "noauth" },
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "url": "{{baseUrl}}/api/usuarios",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"nome\": \"João Silva\",\n  \"email\": \"joao@exemplo.com\",\n  \"idade\": 27\n}"
+          "raw": "{\n  \"nome\": \"João Silva\",\n  \"email\": \"joao@exemplo.com\",\n  \"idade\": 27,\n  \"senha\": \"senha-do-joao-123\"\n}"
         }
       }
     },
     {
-      "name": "Buscar usuário pelo nome",
+      "name": "2. Entrar (login)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  pm.collectionVariables.set(\"token\", pm.response.json().token);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"joao@exemplo.com\",\n  \"senha\": \"senha-do-joao-123\"\n}"
+        }
+      }
+    },
+    {
+      "name": "3. Quem sou eu",
       "request": {
         "method": "GET",
-        "url": {
-          "raw": "{{baseUrl}}/api/usuarios?nome=joao",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "usuarios"],
-          "query": [{ "key": "nome", "value": "joao" }]
+        "url": "{{baseUrl}}/api/eu"
+      }
+    },
+    {
+      "name": "4. Cadastrar outra pessoa",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "  pm.collectionVariables.set(\"outroId\", pm.response.json().id);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/usuarios",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nome\": \"Maria Souza\",\n  \"email\": \"maria@exemplo.com\",\n  \"idade\": 31,\n  \"senha\": \"senha-da-maria-123\"\n}"
         }
       }
     },
     {
-      "name": "Listar usuários (paginado)",
+      "name": "5. Listar usuários (paginado)",
       "request": {
         "method": "GET",
         "url": {
@@ -61,29 +115,41 @@
       }
     },
     {
-      "name": "Buscar usuário pelo id",
+      "name": "6. Buscar usuário pelo nome",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/usuarios?nome=joao",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "usuarios"],
+          "query": [{ "key": "nome", "value": "joao" }]
+        }
+      }
+    },
+    {
+      "name": "7. Buscar usuário pelo id",
       "request": {
         "method": "GET",
         "url": "{{baseUrl}}/api/usuarios/{{usuarioId}}"
       }
     },
     {
-      "name": "Editar usuário",
+      "name": "8. Editar minha conta",
       "request": {
         "method": "PUT",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "url": "{{baseUrl}}/api/usuarios/{{usuarioId}}",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"nome\": \"João Silva Santos\",\n  \"email\": \"joao.santos@exemplo.com\",\n  \"idade\": 28\n}"
+          "raw": "{\n  \"nome\": \"João Silva Santos\",\n  \"email\": \"joao@exemplo.com\",\n  \"idade\": 28\n}"
         }
       }
     },
     {
-      "name": "Apagar usuário",
+      "name": "9. Apagar outra pessoa (só admin)",
       "request": {
         "method": "DELETE",
-        "url": "{{baseUrl}}/api/usuarios/{{usuarioId}}"
+        "url": "{{baseUrl}}/api/usuarios/{{outroId}}"
       }
     }
   ]

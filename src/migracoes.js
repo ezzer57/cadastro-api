@@ -36,6 +36,11 @@ const MIGRACOES = [
      SELECT id, nome, nome_normalizado, email, idade, criado_em, criado_em FROM usuarios ORDER BY rowid;
    DROP TABLE usuarios;
    ALTER TABLE usuarios_com_data_de_edicao RENAME TO usuarios;`,
+
+  `ALTER TABLE usuarios ADD COLUMN senha_hash TEXT
+     CHECK (senha_hash IS NULL OR senha_hash LIKE 'scrypt$%');
+   ALTER TABLE usuarios ADD COLUMN papel TEXT NOT NULL DEFAULT 'comum'
+     CHECK (papel IN ('admin', 'comum'));`,
 ];
 
 function versaoDoBanco(banco) {

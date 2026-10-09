@@ -102,11 +102,30 @@ code { font-family: var(--mono); font-size: 11px; color: var(--muted); }
 }
 .tab:hover { color: var(--text); }
 .tab.active { background: var(--grad); color: #fff; box-shadow: 0 4px 16px rgba(61, 139, 255, 0.35); }
-.tab .icon-lock { display: none; }
-.tab.locked { color: var(--text-faint); }
-.tab.locked .icon-lock { display: inline; }
-.tab.locked .icon-search { display: none; }
-.tab.shake { animation: shake 0.45s ease; }
+
+.tabs[hidden] { display: none; }
+
+.topo-direita { display: flex; align-items: center; gap: 10px; }
+.sessao { display: flex; align-items: center; gap: 10px; }
+.sessao[hidden] { display: none; }
+.sessao-usuario { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+.sessao-nome { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  background: rgba(34, 211, 238, 0.12);
+  color: var(--cyan);
+}
+.tag[hidden] { display: none; }
+.tag.voce { background: var(--violet-soft); color: var(--violet-light); }
 
 .status {
   display: inline-flex; align-items: center; gap: 8px;
@@ -456,13 +475,6 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(0.7); }
   from { transform: scaleX(1); }
   to { transform: scaleX(0); }
 }
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-5px); }
-  40% { transform: translateX(5px); }
-  60% { transform: translateX(-3px); }
-  80% { transform: translateX(3px); }
-}
 @keyframes entrar {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
@@ -492,4 +504,6 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(0.7); }
 }
 @media (max-width: 480px) {
   .logo-text { display: none; }
+  .sessao-usuario { display: none; }
 }
+.sessao .tag { margin-left: 0; }

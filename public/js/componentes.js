@@ -4,6 +4,7 @@ const DURACAO_AVISO_MS = 5000;
 const DURACAO_TOAST_MS = 3000;
 const ATRASO_ENTRE_ITENS_MS = 30;
 const MAXIMO_DE_ITENS_ANIMADOS = 10;
+const PAPEL_ADMIN = "admin";
 
 const $ = (seletor) => document.querySelector(seletor);
 
@@ -15,7 +16,13 @@ const BOTOES_DE_ACAO = `
   <button type="button" class="btn-item" data-acao="editar">${ICONE_EDITAR_PESSOA}<span>Editar</span></button>
   <button type="button" class="btn-item perigo" data-acao="remover">${ICONE_REMOVER_PESSOA}<span>Remover</span></button>`;
 
-function itemUsuario(usuario, posicao, { termo, comAcoes }) {
+function etiquetasDoUsuario(usuario, idDoUsuarioLogado) {
+  const etiquetaAdmin = usuario.papel === PAPEL_ADMIN ? `<span class="tag">admin</span>` : "";
+  const etiquetaVoce = usuario.id === idDoUsuarioLogado ? `<span class="tag voce">você</span>` : "";
+  return etiquetaAdmin + etiquetaVoce;
+}
+
+function itemUsuario(usuario, posicao, { termo, podeAlterar, idDoUsuarioLogado }) {
   const atrasoAnimacao = Math.min(posicao, MAXIMO_DE_ITENS_ANIMADOS) * ATRASO_ENTRE_ITENS_MS;
 
   return `
@@ -23,23 +30,24 @@ function itemUsuario(usuario, posicao, { termo, comAcoes }) {
       <div class="user-info">
         <span class="avatar" style="background: ${corAvatar(usuario.nome)}">${escapeHtml(iniciais(usuario.nome))}</span>
         <div>
-          <div class="user-name">${destacar(usuario.nome, termo)}</div>
+          <div class="user-name">${destacar(usuario.nome, termo)}${etiquetasDoUsuario(usuario, idDoUsuarioLogado)}</div>
           <div class="user-email">${escapeHtml(usuario.email)}</div>
         </div>
       </div>
       <div class="user-actions">
         <span class="badge">${ICONE_BOLO}${plural(usuario.idade, "ano", "anos")}</span>
-        ${comAcoes ? BOTOES_DE_ACAO : ""}
+        ${podeAlterar(usuario) ? BOTOES_DE_ACAO : ""}
       </div>
     </li>`;
 }
 
-export function renderizarLista(lista, usuarios, { vazio, termo = "", comAcoes = false }) {
+export function renderizarLista(lista, usuarios, { vazio, termo = "", podeAlterar = () => false, idDoUsuarioLogado = null }) {
   if (!usuarios.length) {
     mostrarMensagemNaLista(lista, vazio);
     return;
   }
-  lista.innerHTML = usuarios.map((usuario, i) => itemUsuario(usuario, i, { termo, comAcoes })).join("");
+  const opcoes = { termo, podeAlterar, idDoUsuarioLogado };
+  lista.innerHTML = usuarios.map((usuario, i) => itemUsuario(usuario, i, opcoes)).join("");
 }
 
 export function mostrarMensagemNaLista(lista, mensagem) {
@@ -68,15 +76,38 @@ export function atualizarStatusServidor(online) {
   $("#status-text").textContent = online ? "Servidor online" : "Servidor offline";
 }
 
-export function inserirCamposDeUsuario(formulario) {
+export function atualizarSessao(usuarioLogadoOuNulo) {
+  $("#sessao").hidden = !usuarioLogadoOuNulo;
+  $("#abas").hidden = !usuarioLogadoOuNulo;
+  if (!usuarioLogadoOuNulo) return;
+
+  $("#sessao-nome").textContent = usuarioLogadoOuNulo.nome;
+  $("#sessao-papel").textContent = usuarioLogadoOuNulo.papel;
+  $("#sessao-papel").hidden = usuarioLogadoOuNulo.papel !== PAPEL_ADMIN;
+}
+
+export function exibirTela(nome) {
+  for (const tela of ["entrar", "cadastro", "buscar"]) {
+    $(`#view-${tela}`).hidden = tela !== nome;
+  }
+  document.querySelectorAll(".tab").forEach((aba) => aba.classList.toggle("active", aba.dataset.tab === nome));
+}
+
+export function inserirCamposDeUsuario(formulario, { senhaOpcional = false } = {}) {
   const modelo = $("#modelo-campos-usuario");
   formulario.querySelector("[data-campos-usuario]").replaceWith(modelo.content.cloneNode(true));
+  if (!senhaOpcional) return;
+
+  formulario.querySelector("[data-rotulo-senha]").textContent = "Nova senha (opcional)";
+  formulario.senha.placeholder = "Deixe em branco para manter a atual";
+  formulario.senha.required = false;
 }
 
 export function preencherFormulario(formulario, usuario) {
   formulario.nome.value = usuario.nome;
   formulario.email.value = usuario.email;
   formulario.idade.value = usuario.idade;
+  formulario.senha.value = "";
 }
 
 export function mostrarSucessoCadastro(caixa, nome) {
@@ -158,10 +189,6 @@ export function fecharAviso() {
   clearTimeout(timerAviso);
   if (aviso.hidden) return;
   aviso.classList.add("saindo");
-}
-
-export function balancar(elemento) {
-  reiniciarAnimacao(elemento, () => elemento.classList.remove("shake"), () => elemento.classList.add("shake"));
 }
 
 function forcarNavegadorAAplicarEstilos(elemento) {

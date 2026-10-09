@@ -7,67 +7,50 @@ const PRAZO_PARA_CONFIRMAR_REMOCAO_MS = 3000;
 const STATUS_NAO_ENCONTRADO = 404;
 const ULTIMOS_CADASTROS_EXIBIDOS = 5;
 const REGISTROS_POR_PAGINA = 10;
-
-const AVISOS = {
-  pesquisaBloqueada: {
-    titulo: "Pesquisa bloqueada",
-    texto: "Ainda não existe ninguém na base. Faça o primeiro cadastro para desbloquear a pesquisa.",
-  },
-  baseVazia: {
-    titulo: "A base ficou vazia",
-    texto: "Você removeu o último registro. Cadastre alguém para liberar a pesquisa de novo.",
-  },
-};
+const PAPEL_ADMIN = "admin";
 
 const $ = (seletor) => document.querySelector(seletor);
 
 const elementos = {
-  formulario: $("#form-cadastro"),
+  formularioEntrar: $("#form-entrar"),
+  mensagemEntrar: $("#entrar-msg"),
+  formularioCriarConta: $("#form-criar-conta"),
+  mensagemCriarConta: $("#criar-conta-msg"),
+  formularioCadastro: $("#form-cadastro"),
   mensagemCadastro: $("#form-msg"),
   listaCadastro: $("#lista-cadastro"),
+  rodapeCadastro: $("#rodape-cadastro"),
   listaBusca: $("#lista-busca"),
   campoBusca: $("#busca"),
-  abaPesquisar: $('.tab[data-tab="buscar"]'),
+  paginacao: $("#paginacao"),
   modalEdicao: $("#modal-edicao"),
   formularioEdicao: $("#form-edicao"),
   mensagemEdicao: $("#edicao-msg"),
-  rodapeCadastro: $("#rodape-cadastro"),
-  paginacao: $("#paginacao"),
 };
 
 const estado = {
-  totalUsuarios: 0,
+  usuarioLogado: null,
+  usuarioEmEdicao: null,
   numeroDaUltimaBusca: 0,
   timerBusca: null,
   paginaAtual: 1,
-  usuarioEmEdicao: null,
 };
 
-function atualizarTotal(total) {
-  estado.totalUsuarios = total;
-  const bloqueada = total === 0;
-
-  elementos.abaPesquisar.classList.toggle("locked", bloqueada);
-  elementos.abaPesquisar.title = bloqueada ? "Faça o primeiro cadastro para desbloquear" : "";
-  if (!bloqueada) ui.fecharAviso();
+function ehAdmin() {
+  return estado.usuarioLogado?.papel === PAPEL_ADMIN;
 }
 
-function avisarBloqueio(aviso) {
-  ui.mostrarAviso(aviso);
-  ui.balancar(elementos.abaPesquisar);
+function podeAlterar(usuario) {
+  return ehAdmin() || usuario.id === estado.usuarioLogado?.id;
 }
 
-async function pesquisaLiberada() {
-  const respostaOuNuloSeOffline = await api.listar({ limite: 1 }).catch(() => null);
-  if (respostaOuNuloSeOffline) atualizarTotal(respostaOuNuloSeOffline.paginacao.total);
-  return estado.totalUsuarios > 0;
-}
-
-function lerFormulario(formulario) {
+function lerFormulario(formulario, { senhaOpcional = false } = {}) {
+  const senha = formulario.senha.value;
   return {
     nome: formulario.nome.value,
     email: formulario.email.value,
     idade: formulario.idade.value === "" ? null : Number(formulario.idade.value),
+    ...(senhaOpcional && senha === "" ? {} : { senha }),
   };
 }
 
@@ -92,11 +75,77 @@ async function executarComBotaoTravado(formulario, acao) {
   }
 }
 
+function iniciarSessao(usuario, mensagem) {
+  estado.usuarioLogado = usuario;
+  ui.atualizarSessao(usuario);
+  ui.fecharAviso();
+  ui.mostrarToast(mensagem);
+  history.replaceState(null, "", "#cadastro");
+  navegar();
+}
+
+function encerrarSessao() {
+  api.sair();
+  estado.usuarioLogado = null;
+  ui.atualizarSessao(null);
+  if (elementos.modalEdicao.open) elementos.modalEdicao.close();
+  history.replaceState(null, "", location.pathname);
+  navegar();
+}
+
+function sair() {
+  encerrarSessao();
+  ui.mostrarToast("Você saiu da sua conta.");
+}
+
+function aoEncerrarSessaoPeloServidor(evento) {
+  encerrarSessao();
+  ui.mostrarAviso({ titulo: "Sessão encerrada", texto: evento.detail.mensagem });
+}
+
+async function entrar(evento) {
+  evento.preventDefault();
+  const formulario = evento.target;
+
+  await executarComBotaoTravado(formulario, async () => {
+    try {
+      const usuario = await api.entrar({ email: formulario.email.value, senha: formulario.senha.value });
+      formulario.reset();
+      limparFeedbackDoFormulario(formulario, elementos.mensagemEntrar);
+      iniciarSessao(usuario, `Boas-vindas, ${usuario.nome}!`);
+    } catch (erro) {
+      formulario.senha.value = "";
+      exibirErrosDoFormulario(formulario, elementos.mensagemEntrar, erro);
+    }
+  });
+}
+
+async function criarConta(evento) {
+  evento.preventDefault();
+  const formulario = evento.target;
+
+  await executarComBotaoTravado(formulario, async () => {
+    try {
+      const dados = lerFormulario(formulario);
+      await api.cadastrar(dados);
+      const usuario = await api.entrar({ email: dados.email, senha: dados.senha });
+
+      formulario.reset();
+      limparFeedbackDoFormulario(formulario, elementos.mensagemCriarConta);
+      iniciarSessao(usuario, usuario.papel === PAPEL_ADMIN
+        ? "Conta criada com acesso de administrador, por ser a primeira do sistema."
+        : `Conta criada. Boas-vindas, ${usuario.nome}!`);
+    } catch (erro) {
+      exibirErrosDoFormulario(formulario, elementos.mensagemCriarConta, erro);
+    }
+  });
+}
+
 async function carregarListaCadastro() {
   try {
     const { usuarios, paginacao } = await api.listar({ limite: ULTIMOS_CADASTROS_EXIBIDOS });
-    atualizarTotal(paginacao.total);
     ui.renderizarLista(elementos.listaCadastro, usuarios, {
+      idDoUsuarioLogado: estado.usuarioLogado?.id,
       vazio: "Nenhum registro por aqui ainda. Use o formulário ao lado para fazer o primeiro cadastro.",
     });
     ui.atualizarRodapeDosUltimos(elementos.rodapeCadastro, usuarios.length, paginacao.total);
@@ -146,7 +195,8 @@ async function pesquisar() {
     $("#busca-contagem").textContent = plural(paginacao.total, "registro", "registros");
     ui.renderizarLista(elementos.listaBusca, usuarios, {
       termo,
-      comAcoes: true,
+      podeAlterar,
+      idDoUsuarioLogado: estado.usuarioLogado?.id,
       vazio: termo ? `Ninguém encontrado com “${termo}”. Tente outra parte do nome.` : "Nenhum registro por aqui ainda.",
     });
     ui.atualizarPaginacao(elementos.paginacao, paginacao);
@@ -187,6 +237,7 @@ async function abrirEdicao(id) {
     elementos.modalEdicao.showModal();
     elementos.formularioEdicao.nome.focus();
   } catch (erro) {
+    if (!api.temSessao()) return;
     const naoExisteMais = erro.status === STATUS_NAO_ENCONTRADO;
     ui.mostrarToast(naoExisteMais ? "Esse registro não existe mais." : "Não foi possível abrir o registro.");
     pesquisar();
@@ -200,8 +251,13 @@ async function salvarEdicao(evento) {
   await executarComBotaoTravado(formulario, async () => {
     try {
       const antes = estado.usuarioEmEdicao;
-      const usuario = await api.atualizar(antes.id, lerFormulario(formulario));
+      const usuario = await api.atualizar(antes.id, lerFormulario(formulario, { senhaOpcional: true }));
       const nadaMudou = usuario.atualizadoEm === antes.atualizadoEm;
+
+      if (usuario.id === estado.usuarioLogado.id) {
+        estado.usuarioLogado = usuario;
+        ui.atualizarSessao(usuario);
+      }
 
       elementos.modalEdicao.close();
       ui.mostrarToast(nadaMudou ? "Nenhuma alteração para salvar." : `Registro de ${usuario.nome} atualizado.`);
@@ -234,21 +290,20 @@ async function remover(botao, item) {
     const jaTinhaSidoRemovido = erro.status === STATUS_NAO_ENCONTRADO;
     if (!jaTinhaSidoRemovido) {
       botao.disabled = false;
-      ui.mostrarToast("Não foi possível remover o registro.");
+      if (api.temSessao()) ui.mostrarToast(errosDaResposta(erro)[0].mensagem);
       return;
     }
   }
 
-  ui.mostrarToast(`Registro de ${item.dataset.nome} removido.`);
-
-  if (await pesquisaLiberada()) {
-    pesquisar();
+  const removeuAPropriaConta = item.dataset.id === estado.usuarioLogado?.id;
+  if (removeuAPropriaConta) {
+    encerrarSessao();
+    ui.mostrarToast("Sua conta foi removida.");
     return;
   }
 
-  elementos.campoBusca.value = "";
-  location.hash = "#cadastro";
-  avisarBloqueio(AVISOS.baseVazia);
+  ui.mostrarToast(`Registro de ${item.dataset.nome} removido.`);
+  pesquisar();
 }
 
 const ACOES_DA_LISTA = {
@@ -264,47 +319,50 @@ function aoClicarNaListaDeBusca(evento) {
   ACOES_DA_LISTA[botao.dataset.acao](botao, botao.closest("li"));
 }
 
-function exibirAba(aba) {
-  limparFeedbackDoFormulario(elementos.formulario, elementos.mensagemCadastro);
-  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === aba));
-  $("#view-cadastro").hidden = aba !== "cadastro";
-  $("#view-buscar").hidden = aba !== "buscar";
-}
-
-async function navegar() {
-  const querPesquisar = location.hash === "#buscar";
-
-  if (querPesquisar && await pesquisaLiberada()) {
-    estado.paginaAtual = 1;
-    exibirAba("buscar");
-    pesquisar();
+function navegar() {
+  if (!estado.usuarioLogado) {
+    ui.exibirTela("entrar");
     return;
   }
 
-  if (querPesquisar) {
-    history.replaceState(null, "", "#cadastro");
-    avisarBloqueio(AVISOS.pesquisaBloqueada);
-    elementos.formulario.nome.focus();
-  }
+  const aba = location.hash === "#buscar" ? "buscar" : "cadastro";
+  limparFeedbackDoFormulario(elementos.formularioCadastro, elementos.mensagemCadastro);
+  ui.exibirTela(aba);
 
-  exibirAba("cadastro");
-  carregarListaCadastro();
+  if (aba === "buscar") {
+    estado.paginaAtual = 1;
+    pesquisar();
+  } else {
+    carregarListaCadastro();
+  }
 }
 
-for (const formulario of [elementos.formulario, elementos.formularioEdicao]) {
-  ui.inserirCamposDeUsuario(formulario);
+async function iniciar() {
+  estado.usuarioLogado = await api.eu().catch(() => null);
+  ui.atualizarSessao(estado.usuarioLogado);
+  navegar();
+}
+
+for (const formulario of [elementos.formularioCriarConta, elementos.formularioCadastro, elementos.formularioEdicao]) {
+  ui.inserirCamposDeUsuario(formulario, { senhaOpcional: formulario === elementos.formularioEdicao });
+}
+for (const formulario of document.querySelectorAll("form")) {
   ui.limparCampoAoDigitar(formulario);
 }
 ui.configurarModal(elementos.modalEdicao);
 
 window.addEventListener("conexao", (evento) => ui.atualizarStatusServidor(evento.detail.online));
+window.addEventListener("sessao-encerrada", aoEncerrarSessaoPeloServidor);
 window.addEventListener("hashchange", navegar);
-elementos.formulario.addEventListener("submit", cadastrar);
+elementos.formularioEntrar.addEventListener("submit", entrar);
+elementos.formularioCriarConta.addEventListener("submit", criarConta);
+elementos.formularioCadastro.addEventListener("submit", cadastrar);
 elementos.formularioEdicao.addEventListener("submit", salvarEdicao);
 elementos.campoBusca.addEventListener("input", pesquisarQuandoPararDeDigitar);
 elementos.listaBusca.addEventListener("click", aoClicarNaListaDeBusca);
 $("#btn-atualizar").addEventListener("click", carregarListaCadastro);
+$("#btn-sair").addEventListener("click", sair);
 $("#pagina-anterior").addEventListener("click", () => irParaPagina(-1));
 $("#pagina-seguinte").addEventListener("click", () => irParaPagina(1));
 
-navegar();
+iniciar();

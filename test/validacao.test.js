@@ -1,11 +1,11 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { validarDadosDoUsuario, validarTermoDeBusca, validarPaginacao } = require("../src/validacao");
+const { validarDadosDoUsuario, validarLogin, validarTermoDeBusca, validarPaginacao } = require("../src/validacao");
 
-const usuarioValido = { nome: "Ana Lima", email: "ana@exemplo.com", idade: 30 };
+const usuarioValido = { nome: "Ana Lima", email: "ana@exemplo.com", idade: 30, senha: "senha-segura-123" };
 
-function camposComErro(dados) {
-  return validarDadosDoUsuario(dados).map((erro) => erro.campo);
+function camposComErro(dados, opcoes) {
+  return validarDadosDoUsuario(dados, opcoes).map((erro) => erro.campo);
 }
 
 test("aceita um usuário válido", () => {
@@ -57,8 +57,30 @@ test("rejeita idades inválidas", () => {
   }
 });
 
-test("rejeita campos desconhecidos, inclusive id e criadoEm", () => {
-  assert.deepEqual(camposComErro({ ...usuarioValido, id: "x", criadoEm: "hoje", toString: "y" }), ["id", "criadoEm", "toString"]);
+test("aceita senhas de 8 a 128 caracteres", () => {
+  for (const senha of ["12345678", "frase longa com espaços", "Çãõ!@#$%¨&*", "a".repeat(128)]) {
+    assert.deepEqual(camposComErro({ ...usuarioValido, senha }), [], `${JSON.stringify(senha)} deveria ser aceita`);
+  }
+});
+
+test("rejeita senhas inválidas", () => {
+  for (const senha of [undefined, null, "", "        ", "1234567", 12345678, "a".repeat(129)]) {
+    assert.deepEqual(camposComErro({ ...usuarioValido, senha }), ["senha"], `${JSON.stringify(senha)} deveria ser recusada`);
+  }
+});
+
+test("na edição a senha é opcional, mas se vier precisa ser válida", () => {
+  const { senha, ...semSenha } = usuarioValido;
+  assert.deepEqual(camposComErro(semSenha, { senhaObrigatoria: false }), []);
+  assert.deepEqual(camposComErro({ ...semSenha, senha: "curta" }, { senhaObrigatoria: false }), ["senha"]);
+  assert.deepEqual(camposComErro(semSenha), ["senha"]);
+});
+
+test("rejeita campos desconhecidos, inclusive id, papel e criadoEm", () => {
+  assert.deepEqual(
+    camposComErro({ ...usuarioValido, id: "x", papel: "admin", criadoEm: "hoje", toString: "y" }),
+    ["id", "papel", "criadoEm", "toString"],
+  );
 });
 
 test("rejeita corpo que não é um objeto", () => {
@@ -70,8 +92,21 @@ test("rejeita corpo que não é um objeto", () => {
 });
 
 test("devolve uma mensagem por campo com problema", () => {
-  const erros = validarDadosDoUsuario({ nome: "", email: "", idade: "" });
-  assert.deepEqual(erros.map((erro) => erro.mensagem), ["Informe o nome.", "Informe o e-mail.", "Informe a idade."]);
+  const erros = validarDadosDoUsuario({ nome: "", email: "", idade: "", senha: "" });
+  assert.deepEqual(erros.map((erro) => erro.mensagem), [
+    "Informe o nome.",
+    "Informe o e-mail.",
+    "Informe a idade.",
+    "Informe a senha.",
+  ]);
+});
+
+test("valida o corpo do login", () => {
+  assert.deepEqual(validarLogin({ email: "ana@exemplo.com", senha: "qualquer" }), []);
+  assert.deepEqual(validarLogin({}).map((e) => e.campo), ["email", "senha"]);
+  assert.deepEqual(validarLogin({ email: " ", senha: 123 }).map((e) => e.campo), ["email", "senha"]);
+  assert.deepEqual(validarLogin({ email: "a@b.co", senha: "x", lembrar: true }).map((e) => e.campo), ["lembrar"]);
+  assert.equal(validarLogin("texto").length, 1);
 });
 
 test("valida o termo de busca", () => {

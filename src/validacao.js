@@ -8,6 +8,8 @@ const LIMITES = {
   emailParteLocalMax: 64,
   idadeMin: 0,
   idadeMax: 150,
+  senhaMin: 8,
+  senhaMax: 128,
 };
 
 const CARACTERES_PERMITIDOS_NO_NOME = /^[\p{L}\p{M} '’.-]+$/u;
@@ -68,22 +70,47 @@ function validarIdade(valor) {
   return null;
 }
 
-const VALIDADORES_POR_CAMPO = { nome: validarNome, email: validarEmail, idade: validarIdade };
+function validarSenha(valor) {
+  if (estaVazio(valor)) return "Informe a senha.";
+  if (typeof valor !== "string") return "A senha deve ser um texto.";
+  if (valor.length < LIMITES.senhaMin) return `A senha deve ter pelo menos ${LIMITES.senhaMin} caracteres.`;
+  if (valor.length > LIMITES.senhaMax) return `A senha deve ter no máximo ${LIMITES.senhaMax} caracteres.`;
+  return null;
+}
 
-function validarDadosDoUsuario(corpo) {
+const VALIDADORES_POR_CAMPO = { nome: validarNome, email: validarEmail, idade: validarIdade, senha: validarSenha };
+
+function errosDeCamposDesconhecidos(corpo, camposPermitidos) {
+  return Object.keys(corpo)
+    .filter((campo) => !camposPermitidos.includes(campo))
+    .map((campo) => ({ campo, mensagem: `O campo "${campo}" não é permitido.` }));
+}
+
+function validarDadosDoUsuario(corpo, { senhaObrigatoria = true } = {}) {
   if (!ehObjetoJson(corpo)) {
-    return [{ mensagem: "O corpo da requisição deve ser um objeto JSON com nome, email e idade." }];
+    return [{ mensagem: "O corpo da requisição deve ser um objeto JSON com os dados do usuário." }];
   }
 
+  const senhaFicaDeFora = !senhaObrigatoria && corpo.senha === undefined;
   const errosDosCampos = Object.entries(VALIDADORES_POR_CAMPO)
+    .filter(([campo]) => !(campo === "senha" && senhaFicaDeFora))
     .map(([campo, validar]) => ({ campo, mensagem: validar(corpo[campo]) }))
     .filter((erro) => erro.mensagem !== null);
 
-  const errosDeCamposDesconhecidos = Object.keys(corpo)
-    .filter((campo) => !Object.hasOwn(VALIDADORES_POR_CAMPO, campo))
-    .map((campo) => ({ campo, mensagem: `O campo "${campo}" não é permitido.` }));
+  return [...errosDosCampos, ...errosDeCamposDesconhecidos(corpo, Object.keys(VALIDADORES_POR_CAMPO))];
+}
 
-  return [...errosDosCampos, ...errosDeCamposDesconhecidos];
+function validarLogin(corpo) {
+  if (!ehObjetoJson(corpo)) {
+    return [{ mensagem: "O corpo da requisição deve ser um objeto JSON com email e senha." }];
+  }
+
+  const errosDeObrigatorios = [
+    { campo: "email", mensagem: "Informe o e-mail." },
+    { campo: "senha", mensagem: "Informe a senha." },
+  ].filter(({ campo }) => typeof corpo[campo] !== "string" || estaVazio(corpo[campo]));
+
+  return [...errosDeObrigatorios, ...errosDeCamposDesconhecidos(corpo, ["email", "senha"])];
 }
 
 function validarTermoDeBusca(termo) {
@@ -113,4 +140,4 @@ function validarPaginacao({ pagina, limite }) {
   return erros;
 }
 
-module.exports = { validarDadosDoUsuario, validarTermoDeBusca, validarPaginacao };
+module.exports = { validarDadosDoUsuario, validarLogin, validarTermoDeBusca, validarPaginacao };

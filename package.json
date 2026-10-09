@@ -2,17 +2,18 @@
   "name": "cadastro-api",
   "version": "1.0.0",
   "private": true,
-  "description": "Cadastro.api: cadastro, busca e remoção de usuários (API + site)",
+  "description": "Cadastro.api: CRUD de usuários com login (JWT), papéis admin/comum, API e site",
   "main": "server.js",
   "engines": {
     "node": ">=22.13"
   },
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
-    "test": "node --test"
+    "start": "node --env-file-if-exists=.env server.js",
+    "dev": "node --env-file-if-exists=.env --watch server.js",
+    "test": "node --test \"test/*.test.js\""
   },
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.3"
   }
 }

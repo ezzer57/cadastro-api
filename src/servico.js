@@ -1,11 +1,10 @@
 const { validarDadosDoUsuario, validarTermoDeBusca, validarPaginacao } = require("./validacao");
-const { criarUsuario, aplicarEdicao } = require("./usuario");
+const { PAPEIS, criarUsuario, aplicarEdicao } = require("./usuario");
 const { lerPaginacao, resumirPaginacao } = require("./paginacao");
-const { ErroDeValidacao, UsuarioNaoEncontrado, EmailJaCadastrado } = require("./erros");
-
-function garantirQueNaoHaErros(erros) {
-  if (erros.length) throw new ErroDeValidacao(erros);
-}
+const { gerarHashDeSenha } = require("./senha");
+const {
+  ErroDeValidacao, UsuarioNaoEncontrado, EmailJaCadastrado, SemPermissao, UltimoAdministrador,
+} = require("./erros");
 
 function criarServicoDeUsuarios(repositorio) {
   function buscarPorId(id) {
@@ -18,9 +17,19 @@ function criarServicoDeUsuarios(repositorio) {
     if (repositorio.emailEmUso(email, { excetoId })) throw new EmailJaCadastrado();
   }
 
+  function garantirPermissaoSobre(usuarioLogado, idDoAlvo) {
+    const ehAdmin = usuarioLogado.papel === PAPEIS.admin;
+    if (!ehAdmin && usuarioLogado.id !== idDoAlvo) throw new SemPermissao();
+  }
+
+  function papelDoNovoUsuario() {
+    const jaExisteAdmin = repositorio.contarAdministradores() > 0;
+    return jaExisteAdmin ? PAPEIS.comum : PAPEIS.admin;
+  }
+
   return {
     listar({ nome = "", pagina, limite } = {}) {
-      garantirQueNaoHaErros([...validarTermoDeBusca(nome), ...validarPaginacao({ pagina, limite })]);
+      ErroDeValidacao.lancarSeHouver([...validarTermoDeBusca(nome), ...validarPaginacao({ pagina, limite })]);
 
       const paginacao = lerPaginacao({ pagina, limite });
       const deslocamento = (paginacao.pagina - 1) * paginacao.limite;
@@ -33,29 +42,37 @@ function criarServicoDeUsuarios(repositorio) {
 
     buscarPorId,
 
-    cadastrar(dados) {
-      garantirQueNaoHaErros(validarDadosDoUsuario(dados));
+    async cadastrar(dados) {
+      ErroDeValidacao.lancarSeHouver(validarDadosDoUsuario(dados));
+      const senhaHash = await gerarHashDeSenha(dados.senha);
 
-      const usuario = criarUsuario(dados);
+      const usuario = criarUsuario(dados, { papel: papelDoNovoUsuario() });
       garantirEmailDisponivel(usuario.email);
-      return repositorio.adicionar(usuario);
+      return repositorio.adicionar(usuario, senhaHash);
     },
 
-    atualizar(id, dados) {
-      garantirQueNaoHaErros(validarDadosDoUsuario(dados));
-      const usuarioAtual = buscarPorId(id);
+    async atualizar(usuarioLogado, id, dados) {
+      garantirPermissaoSobre(usuarioLogado, id);
+      ErroDeValidacao.lancarSeHouver(validarDadosDoUsuario(dados, { senhaObrigatoria: false }));
+      buscarPorId(id);
 
-      const usuarioEditado = aplicarEdicao(usuarioAtual, dados);
+      const senhaHash = dados.senha === undefined ? null : await gerarHashDeSenha(dados.senha);
+      const usuarioAtual = buscarPorId(id);
+      const usuarioEditado = aplicarEdicao(usuarioAtual, dados, { senhaMudou: senhaHash !== null });
       if (usuarioEditado === usuarioAtual) return usuarioAtual;
 
       garantirEmailDisponivel(usuarioEditado.email, id);
-      return repositorio.atualizarPorIdOuNulo(id, usuarioEditado);
+      return repositorio.atualizarPorIdOuNulo(id, usuarioEditado, senhaHash);
     },
 
-    remover(id) {
-      const removido = repositorio.removerPorIdOuNulo(id);
-      if (!removido) throw new UsuarioNaoEncontrado();
-      return removido;
+    remover(usuarioLogado, id) {
+      garantirPermissaoSobre(usuarioLogado, id);
+      const alvo = buscarPorId(id);
+
+      const ehOUltimoAdmin = alvo.papel === PAPEIS.admin && repositorio.contarAdministradores() === 1;
+      if (ehOUltimoAdmin) throw new UltimoAdministrador();
+
+      return repositorio.removerPorIdOuNulo(id);
     },
   };
 }

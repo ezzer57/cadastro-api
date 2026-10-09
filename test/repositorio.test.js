@@ -6,6 +6,7 @@ const path = require("node:path");
 const { DatabaseSync } = require("node:sqlite");
 const { criarRepositorio } = require("../src/repositorio");
 const { criarUsuario } = require("../src/usuario");
+const { gerarHashDeSenha } = require("../src/senha");
 const { MIGRACOES, versaoDoBanco } = require("../src/migracoes");
 const { EmailJaCadastrado } = require("../src/erros");
 
@@ -22,7 +23,7 @@ after(() => {
 function comRepositorioEmMemoria(usar) {
   const repositorio = criarRepositorio(":memory:");
   try {
-    usar(repositorio);
+    return usar(repositorio);
   } finally {
     repositorio.fechar();
   }
@@ -56,12 +57,25 @@ test("o banco recusa dados que furam as regras, mesmo sem passar pela validaçã
       { email: "SEM-MINUSCULAS@EXEMPLO.COM" },
       { email: "sem-arroba" },
       { atualizadoEm: "2000-01-01T00:00:00.000Z" },
+      { papel: "dono" },
     ];
     for (const dados of invalidos) {
       const usuario = { ...novoUsuario(), ...dados };
       assert.throws(() => repositorio.adicionar(usuario), /CHECK constraint failed/, JSON.stringify(dados));
     }
     assert.equal(repositorio.contar(), 0);
+  });
+});
+
+test("o banco recusa senha guardada em texto puro e aceita só o hash", async () => {
+  const hash = await gerarHashDeSenha("senha-segura-123");
+
+  comRepositorioEmMemoria((repositorio) => {
+    assert.throws(() => repositorio.adicionar(novoUsuario(), "senha-segura-123"), /CHECK constraint failed/);
+
+    const usuario = repositorio.adicionar(novoUsuario({ email: "com.hash@exemplo.com" }), hash);
+    assert.equal(repositorio.buscarCredenciaisPorEmailOuNulo("com.hash@exemplo.com").senhaHash, hash);
+    assert.equal(Object.keys(usuario).some((campo) => campo.toLowerCase().includes("senha")), false);
   });
 });
 
@@ -95,8 +109,11 @@ test("atualiza um banco antigo, sem as regras, mantendo os dados", () => {
   bancoAntigo.close();
 
   const repositorio = criarRepositorio(arquivo);
-  assert.deepEqual(repositorio.buscar().map((u) => u.id), ["id-2", "id-1"]);
-  assert.ok(repositorio.buscar().every((u) => u.atualizadoEm === u.criadoEm));
+  const migrados = repositorio.buscar();
+  assert.deepEqual(migrados.map((u) => u.id), ["id-2", "id-1"]);
+  assert.ok(migrados.every((u) => u.atualizadoEm === u.criadoEm));
+  assert.ok(migrados.every((u) => u.papel === "comum"));
+  assert.equal(repositorio.buscarCredenciaisPorEmailOuNulo("um@exemplo.com").senhaHash, null);
   assert.throws(() => repositorio.adicionar({ ...novoUsuario(), idade: 999 }), /CHECK constraint failed/);
   repositorio.fechar();
 
