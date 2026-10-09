@@ -1,14 +1,15 @@
 # Cadastro.api
 
 CRUD completo em **Node.js + Express**, com um site para cadastrar usuários, buscá-los pelo nome, editá-los e removê-los.
-Os dados ficam salvos em `data/usuarios.json` (não precisa de banco de dados).
+Os dados ficam num banco **SQLite** (`data/cadastro.db`), criado automaticamente na primeira execução.
+Não é preciso instalar nada além do Node.js: o SQLite já vem embutido nele (`node:sqlite`).
 
 No site, a aba **Pesquisar** só abre depois que existir pelo menos 1 usuário cadastrado.
 Enquanto não houver nenhum, ela aparece com um cadeado e, ao clicar, um aviso "salta" na tela pedindo para fazer o primeiro cadastro.
 
 ## Como rodar
 
-Requer Node.js 20 ou superior.
+Requer Node.js 22.13 ou superior (versão que traz o SQLite embutido).
 
 ```bash
 npm install
@@ -23,7 +24,7 @@ Acesse **http://localhost:3000** no navegador.
 | `npm run dev`  | Sobe o servidor e reinicia ao salvar um arquivo   |
 | `npm test`     | Roda os testes automáticos da API                 |
 
-Variáveis de ambiente opcionais: `PORT` (padrão `3000`) e `DATA_FILE` (caminho do arquivo de dados).
+Variáveis de ambiente opcionais: `PORT` (padrão `3000`) e `DB_FILE` (caminho do banco, padrão `data/cadastro.db`).
 
 ## Endpoints
 
@@ -123,7 +124,7 @@ src/
   app.js                 → monta o Express (JSON, arquivos do site, rotas, tratamento de erros)
   rotas.js               → camada HTTP das rotas /api/usuarios
   usuario.js             → regras do usuário: validação e montagem do registro
-  repositorio.js         → leitura e gravação no arquivo JSON
+  repositorio.js         → leitura e gravação no banco SQLite
   texto.js               → normalização de texto (acentos/maiúsculas)
 test/
   usuarios.test.js       → testes automáticos da API (node:test, sem dependências extras)
@@ -133,8 +134,8 @@ public/
   js/api.js              → todas as chamadas HTTP para a API
   js/componentes.js      → peças visuais: lista, campos do formulário, janela, mensagens, toast e aviso
   js/utils.js            → funções puras de texto (escape de HTML, iniciais, destaque)
-data/usuarios.json       → "banco de dados"
+data/cadastro.db         → banco SQLite (criado automaticamente, fica fora do Git)
 ```
 
-Cada camada tem uma responsabilidade só. Por exemplo, para trocar o arquivo JSON
-por um banco de dados, basta reescrever `src/repositorio.js` mantendo os mesmos métodos.
+Cada camada tem uma responsabilidade só. Foi assim que o armazenamento trocou de um arquivo JSON
+para o SQLite: só `src/repositorio.js` mudou, e os testes da API passaram sem nenhuma alteração.

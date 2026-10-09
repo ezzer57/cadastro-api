@@ -6,14 +6,16 @@ const os = require("node:os");
 const path = require("node:path");
 const { criarApp } = require("../src/app");
 const { criarRepositorio } = require("../src/repositorio");
+const { criarUsuario } = require("../src/usuario");
 
 let servidor;
+let repositorio;
 let pastaTemporaria;
 let urlUsuarios;
 
 before(async () => {
   pastaTemporaria = fs.mkdtempSync(path.join(os.tmpdir(), "cadastro-api-"));
-  const repositorio = criarRepositorio(path.join(pastaTemporaria, "usuarios.json"));
+  repositorio = criarRepositorio(path.join(pastaTemporaria, "banco-de-teste.db"));
 
   servidor = criarApp({ repositorio }).listen(0);
   await once(servidor, "listening");
@@ -23,6 +25,7 @@ before(async () => {
 after(() => {
   servidor.closeAllConnections();
   servidor.close();
+  repositorio.fechar();
   fs.rmSync(pastaTemporaria, { recursive: true, force: true });
 });
 
@@ -157,4 +160,27 @@ test("edição com dados inválidos responde 400 e não altera o usuário", asyn
 test("editar id inexistente responde 404", async () => {
   const { status } = await enviar("PUT", `${urlUsuarios}/id-que-nao-existe`, { nome: "Fulano", email: "fulano@exemplo.com", idade: 40 });
   assert.equal(status, 404);
+});
+
+test("busca trata %, _ e ! como texto comum, não como curinga", async () => {
+  await cadastrar({ nome: "Rafa_100%!", email: "rafa@exemplo.com", idade: 22 });
+
+  assert.deepEqual((await buscar("%")).map((u) => u.nome), ["Rafa_100%!"]);
+  assert.deepEqual((await buscar("_")).map((u) => u.nome), ["Rafa_100%!"]);
+  assert.deepEqual((await buscar("!")).map((u) => u.nome), ["Rafa_100%!"]);
+  assert.deepEqual(await buscar("a_b"), []);
+});
+
+test("os dados continuam salvos depois de fechar e abrir o banco de novo", () => {
+  const arquivo = path.join(pastaTemporaria, "persistencia.db");
+  const usuario = criarUsuario({ nome: "Pessoa Persistente", email: "persiste@exemplo.com", idade: 50 });
+
+  const primeiraConexao = criarRepositorio(arquivo);
+  primeiraConexao.adicionar(usuario);
+  primeiraConexao.fechar();
+
+  const segundaConexao = criarRepositorio(arquivo);
+  assert.deepEqual({ ...segundaConexao.buscarPorIdOuNulo(usuario.id) }, usuario);
+  assert.equal(segundaConexao.listar().length, 1);
+  segundaConexao.fechar();
 });

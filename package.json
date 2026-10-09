@@ -5,7 +5,7 @@
   "description": "Cadastro.api: cadastro, busca e remoção de usuários (API + site)",
   "main": "server.js",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13"
   },
   "scripts": {
     "start": "node server.js",
